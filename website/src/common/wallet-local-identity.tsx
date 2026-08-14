@@ -109,7 +109,8 @@ export function LocalIdentityProvider({
 		if (!agentId) return undefined;
 		const signer = useAuthStore.getState().signer;
 		if (!signer) return undefined;
-		return async (message: Uint8Array): Promise<Uint8Array> => signer.sign(message);
+		return async (message: Uint8Array): Promise<Uint8Array> =>
+			signer.sign(message);
 	}, [agentId]);
 
 	const value = useMemo<TinyplaceWalletState>(

@@ -1,27 +1,31 @@
 # Step-by-Step Backend Deployment Guide (Render)
 
-This guide walks you through deploying the `@tinyplace/backend` service, PostgreSQL database, and Redis instance on [Render](https://render.com/).
+This guide details deploying the `@tinyplace/backend` Node.js service directly from your GitHub repository `devndesigner6/tinyplace` to [Render](https://render.com/).
+
+> [!IMPORTANT]
+> **Deploy Render FIRST!**
+> You must deploy Render before Vercel because Vercel requires your live Render Backend URL (`NEXT_PUBLIC_API_BASE_URL`) at build time.
 
 ---
 
-## Architecture Overview
-- **Service**: `@tinyplace/backend` (Node.js / Hono API Server)
+## Architecture & GitHub Integration Overview
+- **GitHub Repository**: `devndesigner6/tinyplace`
+- **Branch**: `main` (Auto-deploys on every `git push`)
+- **Backend Service**: `@tinyplace/backend` (Hono Node API Server)
 - **Database**: Render Managed PostgreSQL v16
 - **Cache**: Render Managed Redis
-- **Port**: `8080` (or `PORT` dynamically provided by Render)
 
 ---
 
 ## Step 1: Provision PostgreSQL Database
 
-1. Log into your [Render Dashboard](https://dashboard.render.com/).
+1. Open [Render Dashboard](https://dashboard.render.com/).
 2. Click **New +** $\rightarrow$ **PostgreSQL**.
-3. Fill in the database details:
+3. Configure details:
    - **Name**: `tinyplace-db`
    - **Database**: `tinyplace`
    - **User**: `tinyplace`
-   - **Region**: Choose closest region (e.g., Oregon / Frankfurt / Singapore)
-   - **Plan**: Free or Starter
+   - **Region**: Choose your preferred region (e.g. Frankfurt / Oregon / Singapore)
 4. Click **Create Database**.
 5. Once created, copy the **Internal Database URL** (e.g., `postgres://tinyplace:password@dpg-xxx-a/tinyplace`).
 
@@ -30,23 +34,23 @@ This guide walks you through deploying the `@tinyplace/backend` service, Postgre
 ## Step 2: Provision Redis Instance
 
 1. In Render Dashboard, click **New +** $\rightarrow$ **Redis**.
-2. Fill in the Redis details:
+2. Configure details:
    - **Name**: `tinyplace-redis`
    - **Plan**: Free or Starter
 3. Click **Create Redis**.
-4. Once active, copy the **Internal Redis URL** (e.g., `redis://red-xxx:6379`).
+4. Once created, copy the **Internal Redis URL** (e.g., `redis://red-xxx:6379`).
 
 ---
 
-## Step 3: Create Web Service for Backend
+## Step 3: Create Web Service from GitHub Repository
 
 1. In Render Dashboard, click **New +** $\rightarrow$ **Web Service**.
-2. Connect your Git repository (`tiny.place`).
-3. Configure the Web Service settings:
+2. Under **Connect a repository**, select `devndesigner6/tinyplace`.
+3. Configure Web Service settings:
    - **Name**: `tinyplace-backend`
    - **Language**: `Node`
-   - **Branch**: `main` (or active branch)
-   - **Region**: Same region as Postgres/Redis
+   - **Branch**: `main`
+   - **Region**: Same region as Postgres & Redis
    - **Root Directory**: *(Leave blank to default to monorepo root)*
    - **Build Command**:
      ```bash
@@ -61,7 +65,7 @@ This guide walks you through deploying the `@tinyplace/backend` service, Postgre
 
 ## Step 4: Configure Environment Variables
 
-Under the **Environment** tab of your Web Service, add the following key-value pairs:
+Under **Environment** tab, add:
 
 | Key | Value / Instructions |
 | :--- | :--- |
@@ -83,20 +87,9 @@ Under the **Environment** tab of your Web Service, add the following key-value p
 
 ---
 
-## Step 5: Deploy & Verify Backend Health
+## Step 5: Deploy & Get Backend URL
 
-1. Click **Deploy Web Service**.
-2. Monitor the deployment logs. Render will run `pnpm install`, execute `db:migrate`, and launch `pnpm start`.
-3. Once the status shows **Live**, test your endpoint in a browser or curl:
-   ```bash
-   curl https://tinyplace-backend.onrender.com/healthz
-   ```
-4. Verify response:
-   ```json
-   {
-     "status": "ok",
-     "settlement": "midnight",
-     "contractsReady": true,
-     "hackathonDevFallback": false
-   }
-   ```
+1. Click **Create Web Service**.
+2. Render will pull from `devndesigner6/tinyplace:main`, run migrations, and start the service.
+3. Copy your live Render URL (e.g. `https://tinyplace-backend.onrender.com`).
+4. Test health endpoint: `https://tinyplace-backend.onrender.com/healthz`

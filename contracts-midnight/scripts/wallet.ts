@@ -66,15 +66,14 @@ export async function buildWalletFromHexSeed(
   return ctx;
 }
 
-export function waitForSync(wallet: WalletFacade, timeout = 300_000): Promise<unknown> {
+function isComplete(progress: { status: string }): boolean {
+  return progress.status === "synced" || progress.status === "syncing";
+}
+
+export function waitForSync(wallet: WalletFacade, timeout = 30_000): Promise<unknown> {
   return Rx.firstValueFrom(
     wallet.state().pipe(
-      Rx.filter(
-        (state) =>
-          isStrictlyComplete(state.shielded.state.progress) &&
-          isStrictlyComplete(state.unshielded.progress) &&
-          isStrictlyComplete(state.dust.state.progress),
-      ),
+      Rx.filter((state) => Boolean(state.unshielded) && Boolean(state.dust)),
       Rx.timeout({
         each: timeout,
         with: () => Rx.throwError(() => new Error(`Wallet sync timeout after ${timeout}ms`)),
@@ -120,14 +119,15 @@ export async function displayWalletBalances(
 
 export async function registerNightForDust(walletContext: WalletContext): Promise<void> {
   const state = await Rx.firstValueFrom(
-    walletContext.wallet.state().pipe(Rx.filter((s) => isStrictlyComplete(s.unshielded.progress))),
+    walletContext.wallet.state().pipe(Rx.filter((s) => Boolean(s.unshielded) && Boolean(s.dust))),
   );
+  if ((state.dust?.availableCoins.length ?? 0) >= 1 || (state.dust?.balance(new Date()) ?? 0n) > 0n) {
+    return;
+  }
   const unregistered =
     state.unshielded?.availableCoins.filter((coin) => coin.meta.registeredForDustGeneration === false) ??
     [];
   if (unregistered.length === 0) {
-    if ((state.dust?.availableCoins.length ?? 0) >= 1) return;
-    await waitForSpendableDust(walletContext);
     return;
   }
   console.log(`Registering ${unregistered.length} NIGHT UTXO(s) for DUST...`);
@@ -139,7 +139,6 @@ export async function registerNightForDust(walletContext: WalletContext): Promis
   const finalizedTx = await walletContext.wallet.finalizeRecipe(recipe);
   const txId = await walletContext.wallet.submitTransaction(finalizedTx);
   console.log(`DUST registration submitted: ${txId}`);
-  await waitForSpendableDust(walletContext);
 }
 
 export function waitForSpendableDust(walletContext: WalletContext, timeout = 180_000): Promise<unknown> {

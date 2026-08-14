@@ -1,72 +1,68 @@
 # Step-by-Step Frontend Deployment Guide (Vercel)
 
-This guide walks you through deploying the `@tinyplace/website` Next.js frontend application on [Vercel](https://vercel.com/).
+This guide details deploying the `@tinyplace/website` Next.js frontend application directly from your GitHub repository `devndesigner6/tinyplace` to [Vercel](https://vercel.com/).
 
 ---
 
-## Architecture Overview
-- **Application**: `@tinyplace/website` (Next.js 16 App Router)
-- **Framework Preset**: Next.js
+## Architecture & Configuration
+- **GitHub Repository**: `devndesigner6/tinyplace`
+- **Branch**: `main` (Auto-deploys on every `git push`)
 - **Root Directory**: `website`
-- **Output Directory**: `.next`
+- **Vercel Config**: Includes pre-configured [vercel.json](file:///c:/Users/hp/tiny.place/website/vercel.json)
 
 ---
 
-## Step 1: Import Repository to Vercel
+## Step 1: Import GitHub Repository to Vercel
 
-1. Log into your [Vercel Dashboard](https://vercel.com/dashboard).
+1. Open [Vercel Dashboard](https://vercel.com/dashboard).
 2. Click **Add New...** $\rightarrow$ **Project**.
-3. Import your Git repository (`tiny.place`).
+3. Select **Import** next to your GitHub repository: `devndesigner6/tinyplace`.
 
 ---
 
-## Step 2: Configure Project Settings
+## Step 2: Configure Monorepo Settings
 
 1. In the **Configure Project** screen:
    - **Project Name**: `tinyplace`
    - **Framework Preset**: `Next.js`
    - **Root Directory**: Click **Edit** and select `website`
-2. Expand the **Build and Output Settings** section:
-   - **Build Command**:
-     ```bash
-     pnpm --filter @tinyplace/website build
-     ```
-   - **Install Command**:
-     ```bash
-     pnpm install
-     ```
+2. Vercel automatically detects [website/vercel.json](file:///c:/Users/hp/tiny.place/website/vercel.json):
+   ```json
+   {
+     "framework": "nextjs",
+     "installCommand": "pnpm install",
+     "buildCommand": "pnpm --filter @tinyhumansai/tinyplace build && pnpm --filter @tinyplace/website build"
+   }
+   ```
 
 ---
 
-## Step 3: Configure Environment Variables
+## Step 3: Add Environment Variables
 
-Expand the **Environment Variables** section and add:
+Add the following environment variables:
 
 | Key | Value / Instructions |
 | :--- | :--- |
-| `NEXT_PUBLIC_API_BASE_URL` | `https://tinyplace-backend.onrender.com` *(Paste your Render backend service URL)* |
+| `NEXT_PUBLIC_API_BASE_URL` | `https://tinyplace-backend.onrender.com` *(Your live Render backend service URL)* |
 | `NEXT_PUBLIC_MIDNIGHT_NETWORK` | `undeployed` *(or `preprod` for public testnet)* |
-| `NEXT_PUBLIC_SITE_URL` | `https://tinyplace.vercel.app` *(Your Vercel domain URL)* |
+| `NEXT_PUBLIC_SITE_URL` | `https://tinyplace.vercel.app` |
 
 ---
 
 ## Step 4: Deploy & Verify Frontend
 
-1. Click **Deploy**.
-2. Monitor Vercel build logs. Next.js will compile all static and dynamic pages.
-3. Once deployment completes, click **Visit**.
-4. Open the live site in your browser (e.g., `https://tinyplace.vercel.app`).
-5. Verify the header status badge:
-   - It should display **`MIDNIGHT · CHAIN READY`** with a green indicator.
+1. Click **Deploy**. Vercel will build `@tinyhumansai/tinyplace` SDK and compile `@tinyplace/website`.
+2. Once complete, click **Visit** (e.g. `https://tinyplace.vercel.app`).
+3. Verify that the top-right network badge shows **`MIDNIGHT · CHAIN READY`** in green.
 
 ---
 
-## Step 5: Update CORS Origin on Render
+## Step 5: Update Backend CORS on Render
 
-After Vercel assigns your live frontend domain (`https://tinyplace.vercel.app`):
-1. Go back to your [Render Dashboard](https://dashboard.render.com/) $\rightarrow$ `tinyplace-backend` $\rightarrow$ **Environment**.
+Now that your Vercel URL is live (e.g. `https://tinyplace.vercel.app`):
+1. Return to [Render Dashboard](https://dashboard.render.com/) $\rightarrow$ `tinyplace-backend` $\rightarrow$ **Environment**.
 2. Update `CORS_ORIGIN` to your exact Vercel URL:
    ```env
    CORS_ORIGIN=https://tinyplace.vercel.app
    ```
-3. Save changes. Render will automatically redeploy the backend with the new CORS origin.
+3. Save changes to allow frontend requests from Vercel.
