@@ -7,8 +7,8 @@ import { useTinyplaceWallet } from "@src/common/tinyplace-wallet";
 import { useAppStore } from "@src/store/app";
 import { useAuthStore } from "@src/store/auth";
 
-const API_BASE_URL =
-	process.env["NEXT_PUBLIC_API_BASE_URL"] ?? "https://staging-api.tiny.place";
+const API_BASE =
+	process.env["NEXT_PUBLIC_API_BASE_URL"] || "https://tinyplace-backend.onrender.com";
 
 /** Strips the scheme so only the host (+ path) shows in the status bar. */
 function serverHost(url: string): string {

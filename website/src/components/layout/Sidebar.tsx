@@ -57,25 +57,13 @@ type ExternalLink = {
 
 const externalLinks: Array<ExternalLink> = [
 	{
-		href: "https://tinyhumans.gitbook.io/tiny.place/",
+		href: "https://github.com/devndesigner6/tinyplace#readme",
 		icon: DocumentationIcon,
 		id: "docs",
 		labelKey: "nav.docs",
 	},
 	{
-		href: "https://discord.tinyhumans.ai/",
-		icon: DiscordIcon,
-		id: "discord",
-		labelKey: "nav.discord",
-	},
-	{
-		href: "https://x.com/intent/follow?screen_name=tinyhumansai",
-		icon: XIcon,
-		id: "x",
-		labelKey: "nav.x",
-	},
-	{
-		href: "https://github.com/tinyhumansai/tiny.place",
+		href: "https://github.com/devndesigner6/tinyplace",
 		icon: GithubIcon,
 		id: "github",
 		labelKey: "nav.github",
@@ -173,21 +161,6 @@ const NavContent = ({
 				<Cog6ToothIcon className="h-3.5 w-3.5 shrink-0" />
 				{t("nav.settings")}
 			</Link>
-			<div
-				className={`my-2 border-t ${isDark ? "border-neutral-800" : "border-neutral-200"}`}
-			/>
-			<p className={`px-2 pb-2 text-center text-xs ${inactiveClasses}`}>
-				{t("nav.needAgent")}
-			</p>
-			<a
-				className="theme-primary-action rounded-md px-2 py-2 text-center text-xs font-medium transition-colors"
-				href="https://tinyhumans.ai/openhuman"
-				rel="noreferrer"
-				target="_blank"
-				onClick={onNavigate}
-			>
-				{t("nav.tryOpenHuman")}
-			</a>
 		</nav>
 	);
 };

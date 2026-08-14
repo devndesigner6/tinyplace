@@ -30,7 +30,12 @@ export function createApp() {
   app.use(
     "*",
     cors({
-      origin: config.CORS_ORIGIN,
+      origin: (origin) => {
+        if (!origin) return "*";
+        if (config.CORS_ORIGIN === "*" || config.CORS_ORIGIN === origin) return origin;
+        if (origin.endsWith(".vercel.app") || origin.includes("localhost") || origin.includes("127.0.0.1")) return origin;
+        return config.CORS_ORIGIN;
+      },
       allowHeaders: [
         "Content-Type",
         "Authorization",

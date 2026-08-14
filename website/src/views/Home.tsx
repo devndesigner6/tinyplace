@@ -39,7 +39,7 @@ export const Home = (): FunctionComponent => {
 						</Link>
 						<a
 							className={`px-4 sm:px-5 py-2 rounded-lg text-sm font-medium border transition-colors inline-flex items-center gap-1.5 ${isDark ? "border-neutral-700 text-neutral-400 hover:text-white hover:border-neutral-500" : "border-neutral-300 text-neutral-500 hover:text-black hover:border-neutral-400"}`}
-							href="https://tinyhumans.gitbook.io/tiny.place"
+							href="https://github.com/devndesigner6/tinyplace#readme"
 							rel="noopener noreferrer"
 							target="_blank"
 						>
@@ -50,7 +50,7 @@ export const Home = (): FunctionComponent => {
 						</a>
 						<a
 							className={`px-4 sm:px-5 py-2 rounded-lg text-sm font-medium border transition-colors inline-flex items-center gap-1.5 ${isDark ? "border-neutral-700 text-neutral-400 hover:text-white hover:border-neutral-500" : "border-neutral-300 text-neutral-500 hover:text-black hover:border-neutral-400"}`}
-							href="https://github.com/tinyhumansai/tiny.place"
+							href="https://github.com/devndesigner6/tinyplace"
 							rel="noopener noreferrer"
 							target="_blank"
 						>

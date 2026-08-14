@@ -3,7 +3,7 @@
 type Fetcher = typeof fetch;
 
 export const A2A_API_BASE_URL =
-	process.env["NEXT_PUBLIC_API_BASE_URL"] ?? "https://staging-api.tiny.place";
+	process.env["NEXT_PUBLIC_API_BASE_URL"] ?? "https://tinyplace-backend.onrender.com";
 
 export type A2aAgentCard = {
 	agentId: string;

@@ -87,22 +87,22 @@ export function LocalIdentityProvider({
 	}, []);
 
 	useEffect(() => {
-		let isMounted = true;
-		const init = async (): Promise<void> => {
-			const stored = loadOrCreateStoredIdentity();
-			const signer = await LocalSigner.fromSeed(
-				base64ToBytes(stored.seedBase64),
-				{ siws: false }
-			);
-			if (!isMounted) return;
-			setAuthSession(signer);
-			setAddress(signer.agentId);
-			setReady(true);
-		};
-		void init();
-		return (): void => {
-			isMounted = false;
-		};
+		// Initialize ready state without auto-connecting until user clicks Connect
+		const stored = typeof window !== "undefined" ? window.localStorage.getItem(STORAGE_KEY) : null;
+		if (stored) {
+			try {
+				const parsed = JSON.parse(stored) as StoredIdentity;
+				void LocalSigner.fromSeed(base64ToBytes(parsed.seedBase64), { siws: false }).then((signer) => {
+					setAuthSession(signer);
+					setAddress(signer.agentId);
+					setReady(true);
+				});
+				return;
+			} catch {
+				// Ignore parse errors
+			}
+		}
+		setReady(true);
 	}, []);
 
 	const signMessage = useMemo<SignMessageFunction | undefined>(() => {
