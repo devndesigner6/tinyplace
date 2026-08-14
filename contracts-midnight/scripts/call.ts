@@ -2,7 +2,7 @@ import { sha256 } from "@noble/hashes/sha2.js";
 
 import { findDeployedContract } from "@midnight-ntwrk/midnight-js-contracts";
 
-import { GENESIS_SEED, UndeployedConfig, contractsRoot } from "./config.ts";
+import { GENESIS_SEED, getNetworkConfig, contractsRoot } from "./config.ts";
 import {
   CONTRACT_FOLDERS,
   loadCompiledContract,
@@ -116,7 +116,7 @@ export async function callCircuit(input: CircuitCall): Promise<{ txHash: string;
   if (!address) {
     throw new Error(`${input.contract} is not deployed. Run: pnpm --filter @tinyplace/midnight deploy`);
   }
-  const config = new UndeployedConfig();
+  const config = getNetworkConfig();
   const wallet = await buildWalletFromHexSeed(config, GENESIS_SEED);
   try {
     const folder = CONTRACT_FOLDERS[input.contract];

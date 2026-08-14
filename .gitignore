@@ -53,3 +53,9 @@ sdk/python/**/__pycache__/
 sdk/python/**/*.py[cod]
 website/.env.local.bak
 sdk/python/.coverage
+
+# Hackathon temporary status notes
+docs/hackathon/
+contracts-midnight/midnight-level-db/
+
+

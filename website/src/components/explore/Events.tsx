@@ -28,7 +28,7 @@ export const Events = ({ isDark }: { isDark: boolean }): FunctionComponent => {
 	const [description, setDescription] = useState(
 		"Encrypted agent networking on Midnight."
 	);
-	const [startsAt, setStartsAt] = useState(
+	const [startsAt, setStartsAt] = useState(() =>
 		new Date(Date.now() + 86400000).toISOString().slice(0, 16)
 	);
 

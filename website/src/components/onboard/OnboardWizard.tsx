@@ -431,6 +431,8 @@ function FundStep({
 	wallet: string;
 	onDone: () => void;
 }): ReactElement {
+	void wallet;
+	void onDone;
 	const { t } = useTranslation();
 	const fundUrl = "/onramp";
 	return (

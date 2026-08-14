@@ -7,7 +7,7 @@
 		"format": "prettier \"src/**/*.{ts,tsx}\" --write",
 		"lint": "node --max-old-space-size=8192 ./node_modules/eslint/bin/eslint.js --max-warnings 0",
 		"lint:fix": "node --max-old-space-size=8192 ./node_modules/eslint/bin/eslint.js --max-warnings 0 --fix",
-		"dev": "next dev --webpack",
+		"dev": "node --max-old-space-size=4096 ./node_modules/next/dist/bin/next dev --webpack",
 		"storybook": "storybook dev -p 6006",
 		"storybook:build": "storybook build",
 		"test": "vitest run src/ --passWithNoTests && playwright test",

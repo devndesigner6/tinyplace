@@ -18,7 +18,7 @@ export circuit claimHandle(
   expires_at: Uint<64>
 ): [] {
   const key = disclose(handle_hash);
-  assert(!handles.member(key));
+  assert(!handles.member(key), "handle already claimed");
   handles.insert(key, HandleRecord {
     owner_commitment: disclose(owner_commitment),
     profile_version_hash: disclose(profile_version_hash),
@@ -29,7 +29,7 @@ export circuit claimHandle(
 
 export circuit deactivateHandle(handle_hash: Bytes<32>): [] {
   const key = disclose(handle_hash);
-  assert(handles.member(key));
+  assert(handles.member(key), "handle not registered");
   const existing = handles.lookup(key);
   handles.insert(key, HandleRecord {
     owner_commitment: existing.owner_commitment,

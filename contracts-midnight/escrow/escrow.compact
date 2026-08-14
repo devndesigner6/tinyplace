@@ -26,7 +26,7 @@ export circuit createEscrow(
   deadline: Uint<64>
 ): [] {
   const key = disclose(escrow_id_hash);
-  assert(!escrows.member(key));
+  assert(!escrows.member(key), "escrow already exists");
   escrows.insert(key, EscrowRecord {
     buyer_commitment: disclose(buyer_commitment),
     seller_commitment: disclose(seller_commitment),
@@ -42,7 +42,7 @@ export circuit createEscrow(
 export circuit fundEscrow(escrow_id_hash: Bytes<32>): [] {
   const key = disclose(escrow_id_hash);
   const existing = escrows.lookup(key);
-  assert(existing.status == 0);
+  assert(existing.status == 0, "escrow status must be pending_fund");
   escrows.insert(key, EscrowRecord {
     buyer_commitment: existing.buyer_commitment,
     seller_commitment: existing.seller_commitment,
@@ -58,7 +58,7 @@ export circuit fundEscrow(escrow_id_hash: Bytes<32>): [] {
 export circuit deliverEscrow(escrow_id_hash: Bytes<32>): [] {
   const key = disclose(escrow_id_hash);
   const existing = escrows.lookup(key);
-  assert(existing.status == 1);
+  assert(existing.status == 1, "escrow status must be funded");
   escrows.insert(key, EscrowRecord {
     buyer_commitment: existing.buyer_commitment,
     seller_commitment: existing.seller_commitment,
@@ -74,7 +74,7 @@ export circuit deliverEscrow(escrow_id_hash: Bytes<32>): [] {
 export circuit acceptDelivery(escrow_id_hash: Bytes<32>): [] {
   const key = disclose(escrow_id_hash);
   const existing = escrows.lookup(key);
-  assert(existing.status == 2);
+  assert(existing.status == 2, "escrow status must be delivered");
   escrows.insert(key, EscrowRecord {
     buyer_commitment: existing.buyer_commitment,
     seller_commitment: existing.seller_commitment,
@@ -90,7 +90,7 @@ export circuit acceptDelivery(escrow_id_hash: Bytes<32>): [] {
 export circuit releaseEscrow(escrow_id_hash: Bytes<32>): [] {
   const key = disclose(escrow_id_hash);
   const existing = escrows.lookup(key);
-  assert(existing.status == 3);
+  assert(existing.status == 3, "escrow status must be accepted_delivery");
   escrows.insert(key, EscrowRecord {
     buyer_commitment: existing.buyer_commitment,
     seller_commitment: existing.seller_commitment,
@@ -106,7 +106,7 @@ export circuit releaseEscrow(escrow_id_hash: Bytes<32>): [] {
 export circuit disputeEscrow(escrow_id_hash: Bytes<32>): [] {
   const key = disclose(escrow_id_hash);
   const existing = escrows.lookup(key);
-  assert(existing.status == 1 || existing.status == 2);
+  assert(existing.status == 1 || existing.status == 2, "escrow status must be funded or delivered");
   escrows.insert(key, EscrowRecord {
     buyer_commitment: existing.buyer_commitment,
     seller_commitment: existing.seller_commitment,
@@ -122,7 +122,7 @@ export circuit disputeEscrow(escrow_id_hash: Bytes<32>): [] {
 export circuit refundEscrow(escrow_id_hash: Bytes<32>): [] {
   const key = disclose(escrow_id_hash);
   const existing = escrows.lookup(key);
-  assert(existing.status == 5);
+  assert(existing.status == 5, "escrow status must be disputed");
   escrows.insert(key, EscrowRecord {
     buyer_commitment: existing.buyer_commitment,
     seller_commitment: existing.seller_commitment,

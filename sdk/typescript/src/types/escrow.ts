@@ -154,6 +154,9 @@ export interface Escrow {
   ledgerTxId?: string;
   releaseLedgerTxId?: string;
   settlementProof?: EscrowSettlementProof;
+  jobId?: string;
+  listingVersionHash?: string;
+  jobCommitment?: string;
 }
 
 export interface EscrowCreateRequest {
@@ -171,6 +174,9 @@ export interface EscrowCreateRequest {
   paymentAuthorization?: string;
   onChainTx?: string;
   signature?: string;
+  jobId?: string;
+  listingVersionHash?: string;
+  jobCommitment?: string;
 }
 
 export interface EscrowQueryParams {

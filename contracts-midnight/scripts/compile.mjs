@@ -22,13 +22,21 @@ function run(command, args, options = {}) {
   return result.status === 0;
 }
 
+function isMidnightCompact(command) {
+  const probe = spawnSync(command, ["compile", "--version"], {
+    encoding: "utf8",
+    shell: process.platform === "win32",
+  });
+  return probe.status === 0 && /compact/i.test(probe.stdout ?? probe.stderr ?? "");
+}
+
 function compactAvailable() {
-  const which = spawnSync(
-    process.platform === "win32" ? "where" : "which",
-    ["compact"],
-    { encoding: "utf8", shell: true },
-  );
-  return which.status === 0;
+  if (process.platform === "win32") {
+    // Windows ships C:\Windows\System32\compact.exe (NTFS compression), not Midnight Compact.
+    return false;
+  }
+  const which = spawnSync("which", ["compact"], { encoding: "utf8", shell: true });
+  return which.status === 0 && isMidnightCompact("compact");
 }
 
 function wslCompact() {
@@ -60,7 +68,7 @@ function wslRunner(sourcePath, targetPath) {
   const toWsl = (windowsPath) =>
     windowsPath.replace(/\\/g, "/").replace(/^([A-Za-z]):/, (_, drive) => `/mnt/${drive.toLowerCase()}`);
   const command = `compact compile ${toWsl(sourcePath)} ${toWsl(targetPath)}`;
-  return run("wsl", ["-e", "bash", "-lc", command]);
+  return run("wsl", ["-e", "bash", "-lc", command], { shell: false });
 }
 
 let runner;

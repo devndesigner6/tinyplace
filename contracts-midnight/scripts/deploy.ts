@@ -5,7 +5,7 @@ import path from "node:path";
 import { deployContract } from "@midnight-ntwrk/midnight-js-contracts";
 import { CompiledContract } from "@midnight-ntwrk/midnight-js-protocol/compact-js";
 
-import { GENESIS_SEED, UndeployedConfig, contractsRoot, statePath } from "./config.ts";
+import { GENESIS_SEED, getNetworkConfig, contractsRoot, statePath } from "./config.ts";
 import { createContractProviders, managedPath } from "./providers.ts";
 import { buildWalletFromHexSeed, closeWallet } from "./wallet.ts";
 
@@ -52,7 +52,7 @@ export async function loadCompiledContract(folder: string, name: string) {
 }
 
 async function main(): Promise<void> {
-  const config = new UndeployedConfig();
+  const config = getNetworkConfig();
   console.log(`Deploying tiny.place Compact contracts to ${config.networkId}`);
   const wallet = await buildWalletFromHexSeed(config, GENESIS_SEED);
   const walletAddress = wallet.unshieldedKeystore.getBech32Address().asString();

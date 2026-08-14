@@ -41,11 +41,11 @@ export function useWalletBalancesForAddress(
 
 	return useQuery({
 		queryKey: queryKeys.payments.walletBalances(wallet),
-		queryFn: async (): Promise<Array<WalletBalance>> => {
+		queryFn: (): Promise<Array<WalletBalance>> => {
 			if (!wallet) {
-				return [];
+				return Promise.resolve([]);
 			}
-			return [
+			return Promise.resolve([
 				{
 					amount: "—",
 					decimals: 6,
@@ -54,7 +54,7 @@ export function useWalletBalancesForAddress(
 					rawAmount: "0",
 					symbol: "NIGHT",
 				},
-			];
+			]);
 		},
 		enabled: Boolean(wallet),
 	});

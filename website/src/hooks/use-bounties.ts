@@ -8,14 +8,14 @@ import {
 	type UseMutationResult,
 	type UseQueryResult,
 } from "@tanstack/react-query";
-import {
-	type Bounty,
-	type BountyComment,
-	type BountyCommentCreateRequest,
-	type BountyCreateRequest,
-	type BountyQueryParams,
-	type BountySubmission,
-	type BountySubmissionCreateRequest,
+import type {
+	Bounty,
+	BountyComment,
+	BountyCommentCreateRequest,
+	BountyCreateRequest,
+	BountyQueryParams,
+	BountySubmission,
+	BountySubmissionCreateRequest,
 } from "@tinyhumansai/tinyplace";
 
 import { useApiClient } from "@src/common/api-context";

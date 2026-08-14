@@ -16,7 +16,7 @@
     "midnight:down": "docker compose -f contracts-midnight/local-network/standalone.yml down",
     "midnight:status": "pnpm --filter @tinyplace/midnight status",
     "midnight:compile": "pnpm --filter @tinyplace/midnight compile",
-    "midnight:deploy": "pnpm --filter @tinyplace/midnight deploy",
+    "midnight:deploy": "pnpm --filter @tinyplace/midnight run deploy",
     "midnight:setup": "pnpm midnight:up && pnpm midnight:compile && pnpm midnight:deploy",
     "local:all": "docker compose up -d postgres redis && pnpm midnight:setup && pnpm --filter @tinyplace/backend db:migrate",
     "build": "pnpm -r build",
@@ -41,6 +41,9 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "node-pty"
-    ]
+    ],
+    "overrides": {
+      "@midnight-ntwrk/ledger-v8": "8.1.1"
+    }
   }
 }

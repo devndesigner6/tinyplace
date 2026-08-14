@@ -25,15 +25,15 @@ export function MidnightNetworkBadge(): React.ReactElement {
 	}
 
 	const ready = data.contractsReady === true;
-	const devFallback = data.hackathonDevFallback === true;
+	const developmentFallback = data.hackathonDevFallback === true;
 	const tone = ready
 		? "border-emerald-800 bg-emerald-950/40 text-emerald-400"
-		: devFallback
+		: developmentFallback
 			? "border-amber-800 bg-amber-950/40 text-amber-400"
 			: "border-rose-800 bg-rose-950/40 text-rose-400";
 	const label = ready
 		? "chain ready"
-		: devFallback
+		: developmentFallback
 			? "dev fallback"
 			: "contracts missing";
 

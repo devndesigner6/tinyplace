@@ -29,7 +29,7 @@ export type WalletContext = {
 };
 
 const DUST_OPTIONS: DustWalletOptions = {
-  ledgerParams: LedgerParameters.initialParameters(),
+  ledgerParams: LedgerParameters.initialParameters().dust,
   additionalFeeOverhead: 1_000n,
   feeBlocksMargin: 5,
 };

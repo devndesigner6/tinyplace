@@ -1,8 +1,8 @@
-import { UndeployedConfig } from "./config.ts";
+import { getNetworkConfig } from "./config.ts";
 import { readDeploymentState } from "./deploy.ts";
 
 async function main(): Promise<void> {
-  const config = new UndeployedConfig();
+  const config = getNetworkConfig();
   const checks = await Promise.allSettled([
     fetch(`${config.node.replace(/\/$/u, "")}/health`).then(async (r) => ({
       node: r.ok ? "up" : `http ${r.status}`,

@@ -5,13 +5,13 @@ import {
 	type UseMutationResult,
 	type UseQueryResult,
 } from "@tanstack/react-query";
-import {
-	type BroadcastChannel,
-	type BroadcastCreateRequest,
-	type BroadcastMessage,
-	type BroadcastQueryParams,
-	type BroadcastSubscriber,
-	type BroadcastSubscribeRequest,
+import type {
+	BroadcastChannel,
+	BroadcastCreateRequest,
+	BroadcastMessage,
+	BroadcastQueryParams,
+	BroadcastSubscriber,
+	BroadcastSubscribeRequest,
 } from "@tinyhumansai/tinyplace";
 
 import { useApiClient } from "@src/common/api-context";

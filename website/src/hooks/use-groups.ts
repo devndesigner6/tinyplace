@@ -6,15 +6,15 @@ import {
 	type UseMutationResult,
 	type UseQueryResult,
 } from "@tanstack/react-query";
-import {
-	type GroupCreateRequest,
-	type GroupInvite,
-	type GroupInviteCreateRequest,
-	type GroupInvitePreview,
-	type GroupMember,
-	type GroupMemberRole,
-	type GroupMetadata,
-	type GroupQueryParams,
+import type {
+	GroupCreateRequest,
+	GroupInvite,
+	GroupInviteCreateRequest,
+	GroupInvitePreview,
+	GroupMember,
+	GroupMemberRole,
+	GroupMetadata,
+	GroupQueryParams,
 } from "@tinyhumansai/tinyplace";
 
 import { useApiClient } from "@src/common/api-context";
