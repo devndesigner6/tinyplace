@@ -1,0 +1,136 @@
+pragma language_version 0.23;
+
+import CompactStandardLibrary;
+
+struct EscrowRecord {
+  buyer_commitment: Bytes<32>,
+  seller_commitment: Bytes<32>,
+  amount: Uint<64>,
+  token: Bytes<32>,
+  listing_version_hash: Bytes<32>,
+  job_commitment: Bytes<32>,
+  status: Uint<8>,
+  deadline: Uint<64>
+}
+
+export ledger escrows: Map<Bytes<32>, EscrowRecord>;
+
+export circuit createEscrow(
+  escrow_id_hash: Bytes<32>,
+  buyer_commitment: Bytes<32>,
+  seller_commitment: Bytes<32>,
+  amount: Uint<64>,
+  token: Bytes<32>,
+  listing_version_hash: Bytes<32>,
+  job_commitment: Bytes<32>,
+  deadline: Uint<64>
+): [] {
+  const key = disclose(escrow_id_hash);
+  assert(!escrows.member(key));
+  escrows.insert(key, EscrowRecord {
+    buyer_commitment: disclose(buyer_commitment),
+    seller_commitment: disclose(seller_commitment),
+    amount: disclose(amount),
+    token: disclose(token),
+    listing_version_hash: disclose(listing_version_hash),
+    job_commitment: disclose(job_commitment),
+    status: 0,
+    deadline: disclose(deadline)
+  });
+}
+
+export circuit fundEscrow(escrow_id_hash: Bytes<32>): [] {
+  const key = disclose(escrow_id_hash);
+  const existing = escrows.lookup(key);
+  assert(existing.status == 0);
+  escrows.insert(key, EscrowRecord {
+    buyer_commitment: existing.buyer_commitment,
+    seller_commitment: existing.seller_commitment,
+    amount: existing.amount,
+    token: existing.token,
+    listing_version_hash: existing.listing_version_hash,
+    job_commitment: existing.job_commitment,
+    status: 1,
+    deadline: existing.deadline
+  });
+}
+
+export circuit deliverEscrow(escrow_id_hash: Bytes<32>): [] {
+  const key = disclose(escrow_id_hash);
+  const existing = escrows.lookup(key);
+  assert(existing.status == 1);
+  escrows.insert(key, EscrowRecord {
+    buyer_commitment: existing.buyer_commitment,
+    seller_commitment: existing.seller_commitment,
+    amount: existing.amount,
+    token: existing.token,
+    listing_version_hash: existing.listing_version_hash,
+    job_commitment: existing.job_commitment,
+    status: 2,
+    deadline: existing.deadline
+  });
+}
+
+export circuit acceptDelivery(escrow_id_hash: Bytes<32>): [] {
+  const key = disclose(escrow_id_hash);
+  const existing = escrows.lookup(key);
+  assert(existing.status == 2);
+  escrows.insert(key, EscrowRecord {
+    buyer_commitment: existing.buyer_commitment,
+    seller_commitment: existing.seller_commitment,
+    amount: existing.amount,
+    token: existing.token,
+    listing_version_hash: existing.listing_version_hash,
+    job_commitment: existing.job_commitment,
+    status: 3,
+    deadline: existing.deadline
+  });
+}
+
+export circuit releaseEscrow(escrow_id_hash: Bytes<32>): [] {
+  const key = disclose(escrow_id_hash);
+  const existing = escrows.lookup(key);
+  assert(existing.status == 3);
+  escrows.insert(key, EscrowRecord {
+    buyer_commitment: existing.buyer_commitment,
+    seller_commitment: existing.seller_commitment,
+    amount: existing.amount,
+    token: existing.token,
+    listing_version_hash: existing.listing_version_hash,
+    job_commitment: existing.job_commitment,
+    status: 4,
+    deadline: existing.deadline
+  });
+}
+
+export circuit disputeEscrow(escrow_id_hash: Bytes<32>): [] {
+  const key = disclose(escrow_id_hash);
+  const existing = escrows.lookup(key);
+  assert(existing.status == 1 || existing.status == 2);
+  escrows.insert(key, EscrowRecord {
+    buyer_commitment: existing.buyer_commitment,
+    seller_commitment: existing.seller_commitment,
+    amount: existing.amount,
+    token: existing.token,
+    listing_version_hash: existing.listing_version_hash,
+    job_commitment: existing.job_commitment,
+    status: 5,
+    deadline: existing.deadline
+  });
+}
+
+export circuit refundEscrow(escrow_id_hash: Bytes<32>): [] {
+  const key = disclose(escrow_id_hash);
+  const existing = escrows.lookup(key);
+  assert(existing.status == 5);
+  escrows.insert(key, EscrowRecord {
+    buyer_commitment: existing.buyer_commitment,
+    seller_commitment: existing.seller_commitment,
+    amount: existing.amount,
+    token: existing.token,
+    listing_version_hash: existing.listing_version_hash,
+    job_commitment: existing.job_commitment,
+    status: 6,
+    deadline: existing.deadline
+  });
+}

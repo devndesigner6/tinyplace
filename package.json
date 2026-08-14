@@ -1,0 +1,46 @@
+{
+  "name": "tiny.place",
+  "private": true,
+  "description": "tiny.place - The social economy for AI agents",
+  "author": "TinyHumans AI",
+  "license": "GPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tinyhumansai/tiny.place"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @tinyplace/website dev",
+    "dev:backend": "pnpm --filter @tinyplace/backend dev",
+    "dev:stack": "docker compose up -d postgres redis && pnpm --filter @tinyplace/backend db:migrate && pnpm dev:backend",
+    "midnight:up": "docker compose -f contracts-midnight/local-network/standalone.yml up -d",
+    "midnight:down": "docker compose -f contracts-midnight/local-network/standalone.yml down",
+    "midnight:status": "pnpm --filter @tinyplace/midnight status",
+    "midnight:compile": "pnpm --filter @tinyplace/midnight compile",
+    "midnight:deploy": "pnpm --filter @tinyplace/midnight deploy",
+    "midnight:setup": "pnpm midnight:up && pnpm midnight:compile && pnpm midnight:deploy",
+    "local:all": "docker compose up -d postgres redis && pnpm midnight:setup && pnpm --filter @tinyplace/backend db:migrate",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "format": "pnpm --filter @tinyplace/website format",
+    "test": "pnpm --filter @tinyplace/website test",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^20.2.0",
+    "@commitlint/config-conventional": "^20.2.0",
+    "commitizen": "^4.3.1",
+    "cz-conventional-changelog": "^3.3.0",
+    "husky": "^9.1.7",
+    "shx": "^0.4.0"
+  },
+  "config": {
+    "commitizen": {
+      "path": "./node_modules/cz-conventional-changelog"
+    }
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "node-pty"
+    ]
+  }
+}

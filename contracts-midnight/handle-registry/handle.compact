@@ -1,0 +1,40 @@
+pragma language_version 0.23;
+
+import CompactStandardLibrary;
+
+struct HandleRecord {
+  owner_commitment: Bytes<32>,
+  profile_version_hash: Bytes<32>,
+  status: Uint<8>,
+  expires_at: Uint<64>
+}
+
+export ledger handles: Map<Bytes<32>, HandleRecord>;
+
+export circuit claimHandle(
+  handle_hash: Bytes<32>,
+  owner_commitment: Bytes<32>,
+  profile_version_hash: Bytes<32>,
+  expires_at: Uint<64>
+): [] {
+  const key = disclose(handle_hash);
+  assert(!handles.member(key));
+  handles.insert(key, HandleRecord {
+    owner_commitment: disclose(owner_commitment),
+    profile_version_hash: disclose(profile_version_hash),
+    status: 1,
+    expires_at: disclose(expires_at)
+  });
+}
+
+export circuit deactivateHandle(handle_hash: Bytes<32>): [] {
+  const key = disclose(handle_hash);
+  assert(handles.member(key));
+  const existing = handles.lookup(key);
+  handles.insert(key, HandleRecord {
+    owner_commitment: existing.owner_commitment,
+    profile_version_hash: existing.profile_version_hash,
+    status: 0,
+    expires_at: existing.expires_at
+  });
+}

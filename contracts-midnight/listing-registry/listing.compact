@@ -1,0 +1,28 @@
+pragma language_version 0.23;
+
+import CompactStandardLibrary;
+
+struct ListingRecord {
+  seller_commitment: Bytes<32>,
+  version_hash: Bytes<32>,
+  price_amount: Uint<64>,
+  accepted_token: Bytes<32>
+}
+
+export ledger listings: Map<Bytes<32>, ListingRecord>;
+
+export circuit anchorListing(
+  listing_id_hash: Bytes<32>,
+  seller_commitment: Bytes<32>,
+  version_hash: Bytes<32>,
+  price_amount: Uint<64>,
+  accepted_token: Bytes<32>
+): [] {
+  const key = disclose(listing_id_hash);
+  listings.insert(key, ListingRecord {
+    seller_commitment: disclose(seller_commitment),
+    version_hash: disclose(version_hash),
+    price_amount: disclose(price_amount),
+    accepted_token: disclose(accepted_token)
+  });
+}

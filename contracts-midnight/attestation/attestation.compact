@@ -1,0 +1,42 @@
+pragma language_version 0.23;
+
+import CompactStandardLibrary;
+
+struct AttestationRecord {
+  output_hash: Bytes<32>,
+  job_commitment: Bytes<32>,
+  issuer_commitment: Bytes<32>,
+  issued_at: Uint<64>,
+  revoked: Boolean
+}
+
+export ledger attestations: Map<Bytes<32>, AttestationRecord>;
+
+export circuit anchorAttestation(
+  attestation_id_hash: Bytes<32>,
+  output_hash: Bytes<32>,
+  job_commitment: Bytes<32>,
+  issuer_commitment: Bytes<32>,
+  issued_at: Uint<64>
+): [] {
+  const key = disclose(attestation_id_hash);
+  attestations.insert(key, AttestationRecord {
+    output_hash: disclose(output_hash),
+    job_commitment: disclose(job_commitment),
+    issuer_commitment: disclose(issuer_commitment),
+    issued_at: disclose(issued_at),
+    revoked: false
+  });
+}
+
+export circuit revokeAttestation(attestation_id_hash: Bytes<32>): [] {
+  const key = disclose(attestation_id_hash);
+  const existing = attestations.lookup(key);
+  attestations.insert(key, AttestationRecord {
+    output_hash: existing.output_hash,
+    job_commitment: existing.job_commitment,
+    issuer_commitment: existing.issuer_commitment,
+    issued_at: existing.issued_at,
+    revoked: true
+  });
+}
