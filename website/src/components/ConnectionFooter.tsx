@@ -6,6 +6,7 @@ import type { FunctionComponent } from "@src/common/types";
 import { useTinyplaceWallet } from "@src/common/tinyplace-wallet";
 import { useAppStore } from "@src/store/app";
 import { useAuthStore } from "@src/store/auth";
+import { useBackendHealth } from "@src/hooks/use-backend-health";
 
 const API_BASE_URL =
 	(process.env as Record<string, string | undefined>)["NEXT_PUBLIC_API_BASE_URL"] ||
@@ -56,17 +57,22 @@ const Divider = ({ isDark }: { isDark: boolean }): FunctionComponent => (
  */
 export const ConnectionFooter = (): FunctionComponent => {
 	const { t } = useTranslation();
-	const { connected } = useTinyplaceWallet();
+	const wallet = useTinyplaceWallet();
+	const health = useBackendHealth();
 	const signer = useAuthStore((state) => state.signer);
 	const agentId = useAuthStore((state) => state.agentId);
 	const isDark = useAppStore((state) => state.theme) === "dark";
 
 	const authenticated = Boolean(signer);
 
-	const statusLabel = connected
-		? t("connection.connected")
-		: t("connection.disconnected");
-	const statusColor = connected ? "bg-emerald-400" : "bg-red-400";
+	const backendOnline = !health.isError && health.data?.status === "ok";
+	const statusLabel = wallet.connected
+		? t("connection.connected", { defaultValue: "Connected" })
+		: backendOnline
+			? "Backend Ready"
+			: t("connection.disconnected", { defaultValue: "Disconnected" });
+
+	const statusColor = wallet.connected || backendOnline ? "bg-emerald-400" : "bg-red-400";
 
 	return (
 		<footer
