@@ -68,47 +68,38 @@ export function LocalIdentityProvider({
 
 	const connectLace = useCallback(async (): Promise<boolean> => {
 		if (typeof window === "undefined") return false;
+		const win = window as any;
 
-		const findProvider = () => {
-			const win = window as any;
-			return (
-				win.midnight?.mnLace ||
-				win.midnight?.lace ||
-				win.midnight ||
-				win.cardano?.mnLace ||
-				win.cardano?.lace ||
-				win.cardano
-			);
-		};
-
-		let laceProvider = findProvider();
-
-		// Give Chrome extension content scripts a 300ms window to inject window.cardano / window.midnight
-		if (!laceProvider || typeof laceProvider.enable !== "function") {
-			await new Promise((resolve) => setTimeout(resolve, 300));
-			laceProvider = findProvider();
+		// 1. Official Midnight Lace DApp Connector API (window.midnight.mnLace)
+		const midnightProvider = win.midnight?.mnLace || win.midnight?.lace;
+		if (midnightProvider && typeof midnightProvider.enable === "function") {
+			try {
+				const walletApi = await midnightProvider.enable();
+				const state = typeof walletApi?.state === "function" ? await walletApi.state() : walletApi;
+				const laceAddr = state?.shielded?.address || state?.unshielded?.address || state?.address;
+				if (laceAddr) {
+					setAddress(String(laceAddr));
+					setReady(true);
+					return true;
+				}
+			} catch (err: any) {
+				console.error("Midnight Lace connection error:", err);
+				alert(`Midnight Lace Wallet connection rejected or prompt failed: ${err?.message || err}`);
+				return false;
+			}
 		}
 
-		if (laceProvider && typeof laceProvider.enable === "function") {
+		// 2. Cardano CIP-30 Provider (window.cardano.lace)
+		const cardanoProvider = win.cardano?.lace || win.cardano?.mnLace;
+		if (cardanoProvider && typeof cardanoProvider.enable === "function") {
 			try {
-				const laceApi = await laceProvider.enable();
+				const laceApi = await cardanoProvider.enable();
 				const state = typeof laceApi?.state === "function" ? await laceApi.state() : laceApi;
-
-				let laceAddr: string | null =
-					state?.shielded?.address ||
-					state?.unshielded?.address ||
-					state?.address ||
-					null;
+				let laceAddr: string | null = state?.shielded?.address || state?.unshielded?.address || state?.address || null;
 
 				if (!laceAddr && typeof laceApi?.getUsedAddresses === "function") {
 					const addrs = await laceApi.getUsedAddresses();
-					if (addrs && addrs.length > 0) {
-						laceAddr = addrs[0];
-					}
-				}
-
-				if (!laceAddr && typeof laceApi?.getChangeAddress === "function") {
-					laceAddr = await laceApi.getChangeAddress();
+					if (addrs && addrs.length > 0) laceAddr = addrs[0];
 				}
 
 				if (laceAddr) {
@@ -117,19 +108,13 @@ export function LocalIdentityProvider({
 					return true;
 				}
 			} catch (err: any) {
-				console.error("Lace wallet connection error:", err);
-				alert(`Lace Wallet connection prompt failed or was cancelled: ${err?.message || err}`);
+				console.error("Cardano Lace connection error:", err);
+				alert(`Cardano Lace Wallet connection rejected or prompt failed: ${err?.message || err}`);
 				return false;
 			}
 		}
 
-		alert(
-			"Lace Wallet extension was not detected on this page context.\n\n" +
-			"To grant Lace access to tinyplace-md.vercel.app:\n" +
-			"1. Click the Lace icon in your Chrome extensions bar (top right of browser).\n" +
-			"2. Ensure Site Access is set to 'On all sites' or allow access for this domain.\n" +
-			"3. Click Connect Wallet again!"
-		);
+		alert("Lace Wallet extension (window.midnight.mnLace or window.cardano.lace) was not detected in your browser window context. Please make sure the extension is enabled.");
 		return false;
 	}, []);
 
