@@ -23,6 +23,7 @@ import { explorerRoutes, statsRoutes } from "./routes/stats.js";
 import { usersRoutes } from "./routes/users.js";
 import { createMidnightProvider } from "./services/midnight/provider.js";
 
+import { activityRoutes } from "./routes/activity.js";
 import { bountiesRoutes } from "./routes/bounties.js";
 
 export function createApp() {
@@ -60,6 +61,7 @@ export function createApp() {
   });
 
   app.route("/", healthRoutes);
+  app.route("/", activityRoutes);
   app.route("/", bountiesRoutes);
   app.route("/", registryRoutes(midnight));
   app.route("/", directoryRoutes);
