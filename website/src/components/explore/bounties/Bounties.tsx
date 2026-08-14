@@ -40,7 +40,7 @@ import {
 	strongClass,
 } from "./styles";
 
-const API_BASE =
+const API_BASE_URL =
 	process.env["NEXT_PUBLIC_API_BASE_URL"] || "https://tinyplace-backend.onrender.com";
 
 // USDC leads: it's the canonical on-chain stablecoin every bounty escrow has
