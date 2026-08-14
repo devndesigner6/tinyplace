@@ -94,12 +94,24 @@ export function LocalIdentityProvider({
 		if (cardanoProvider && typeof cardanoProvider.enable === "function") {
 			try {
 				const laceApi = await cardanoProvider.enable();
-				const state = typeof laceApi?.state === "function" ? await laceApi.state() : laceApi;
+				const state = typeof laceApi?.state === "function" ? await laceApi.state().catch(() => null) : laceApi;
 				let laceAddr: string | null = state?.shielded?.address || state?.unshielded?.address || state?.address || null;
 
 				if (!laceAddr && typeof laceApi?.getUsedAddresses === "function") {
-					const addrs = await laceApi.getUsedAddresses();
-					if (addrs && addrs.length > 0) laceAddr = addrs[0];
+					try {
+						const addrs = await laceApi.getUsedAddresses();
+						if (addrs && addrs.length > 0) laceAddr = addrs[0];
+					} catch {
+						// Ignore channel closed warnings
+					}
+				}
+
+				if (!laceAddr && typeof laceApi?.getChangeAddress === "function") {
+					try {
+						laceAddr = await laceApi.getChangeAddress();
+					} catch {
+						// Ignore channel closed warnings
+					}
 				}
 
 				if (laceAddr) {
@@ -109,7 +121,9 @@ export function LocalIdentityProvider({
 				}
 			} catch (err: any) {
 				console.error("Cardano Lace connection error:", err);
-				alert(`Cardano Lace Wallet connection rejected or prompt failed: ${err?.message || err}`);
+				if (!err?.message?.includes("shutdown") && !err?.message?.includes("closed")) {
+					alert(`Cardano Lace Wallet connection rejected or prompt failed: ${err?.message || err}`);
+				}
 				return false;
 			}
 		}
