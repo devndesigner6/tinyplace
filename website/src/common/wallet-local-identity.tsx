@@ -66,24 +66,31 @@ export function LocalIdentityProvider({
 	const [address, setAddress] = useState<string | null>(null);
 	const agentId = useAuthStore((state) => state.agentId);
 
-	const connect = useCallback(async (): Promise<void> => {
-		// 1. Check for Midnight Lace Wallet browser extension
-		if (typeof window !== "undefined" && (window as any).midnight?.mnLace) {
+	const connectLace = useCallback(async (): Promise<boolean> => {
+		if (typeof window === "undefined") return false;
+		const win = window as any;
+		const laceProvider = win.midnight?.mnLace || win.midnight?.lace || win.cardano?.mnLace || win.midnight;
+		if (laceProvider && typeof laceProvider.enable === "function") {
 			try {
-				const laceApi = await (window as any).midnight.mnLace.enable();
-				const state = await laceApi.state();
-				const laceAddr = state.shielded?.address || state.unshielded?.address;
+				const laceApi = await laceProvider.enable();
+				const state = typeof laceApi.state === "function" ? await laceApi.state() : laceApi;
+				const laceAddr = state.shielded?.address || state.unshielded?.address || state.address;
 				if (laceAddr) {
-					setAddress(laceAddr);
+					setAddress(String(laceAddr));
 					setReady(true);
-					return;
+					return true;
 				}
 			} catch (err) {
-				console.warn("Midnight Lace connection attempt failed, connecting Agent Identity", err);
+				console.error("Midnight Lace wallet connection error:", err);
+				alert("Midnight Lace Wallet connection prompt failed or was cancelled. Please unlock your Lace extension and try again.");
+				return false;
 			}
 		}
+		alert("Midnight Lace Wallet extension was not detected in your browser. Please ensure the Lace extension is unlocked and enabled for this site.");
+		return false;
+	}, []);
 
-		// 2. Fallback to Agent Identity Signer
+	const connectAgent = useCallback(async (): Promise<void> => {
 		const stored = loadOrCreateStoredIdentity();
 		const signer = await LocalSigner.fromSeed(
 			base64ToBytes(stored.seedBase64),
@@ -126,12 +133,14 @@ export function LocalIdentityProvider({
 			connecting: !ready,
 			disconnect,
 			openConnectModal: (): void => {
-				void connect();
+				void connectAgent();
 			},
+			connectLace,
+			connectAgent,
 			address,
 			signMessage,
 		}),
-		[address, connect, disconnect, ready, signMessage]
+		[address, connectAgent, connectLace, disconnect, ready, signMessage]
 	);
 
 	return (

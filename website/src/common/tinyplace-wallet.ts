@@ -7,7 +7,9 @@ export type TinyplaceWalletState = {
 	connecting: boolean;
 	disconnect: () => Promise<void>;
 	openConnectModal: () => void;
-	/** Base58 cryptoId (Ed25519 public key) for the local Midnight identity. */
+	connectLace: () => Promise<boolean>;
+	connectAgent: () => Promise<void>;
+	/** Base58 cryptoId (Ed25519 public key) or Midnight Lace address. */
 	address: string | null;
 	signMessage?: SignMessageFunction;
 };

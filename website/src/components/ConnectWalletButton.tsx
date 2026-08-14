@@ -61,9 +61,16 @@ export const ConnectWalletButton = (): FunctionComponent => {
 		void wallet.disconnect();
 	};
 
-	const connectLace = async (): Promise<void> => {
+	const handleConnectLace = async (): Promise<void> => {
+		const success = await wallet.connectLace();
+		if (success) {
+			setConnectModalOpen(false);
+		}
+	};
+
+	const handleConnectAgent = async (): Promise<void> => {
 		setConnectModalOpen(false);
-		await wallet.openConnectModal();
+		await wallet.connectAgent();
 	};
 
 	const panelClass = isDark
@@ -117,7 +124,7 @@ export const ConnectWalletButton = (): FunctionComponent => {
 							<button
 								className="w-full flex items-center justify-between rounded-xl border border-purple-500/30 bg-purple-950/20 p-3.5 text-left text-sm font-medium transition-all hover:border-purple-500/60 hover:bg-purple-900/30"
 								type="button"
-								onClick={connectLace}
+								onClick={handleConnectLace}
 							>
 								<div className="flex items-center gap-3">
 									<span className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-600/20 text-purple-400 font-bold text-xs">
@@ -134,7 +141,7 @@ export const ConnectWalletButton = (): FunctionComponent => {
 							<button
 								className="w-full flex items-center justify-between rounded-xl border border-neutral-700/50 bg-neutral-900/50 p-3.5 text-left text-sm font-medium transition-all hover:border-neutral-600 hover:bg-neutral-800/50"
 								type="button"
-								onClick={connectLace}
+								onClick={handleConnectAgent}
 							>
 								<div className="flex items-center gap-3">
 									<span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600/20 text-blue-400 font-bold text-xs">

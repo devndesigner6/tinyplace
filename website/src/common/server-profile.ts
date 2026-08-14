@@ -126,16 +126,24 @@ export const resolveProfileById = cache(
 			return null;
 		}
 		if (isWalletAddress(decoded)) {
-			const [user, identities] = await Promise.all([
-				fetchUserByCryptoId(decoded),
-				fetchIdentitiesByCryptoId(decoded),
-			]);
-			return userToProfile(
-				user ?? emptyUser(decoded),
-				primaryHandleFromIdentities(identities) ?? undefined,
-				identities
-			);
+			try {
+				const [user, identities] = await Promise.all([
+					fetchUserByCryptoId(decoded).catch(() => null),
+					fetchIdentitiesByCryptoId(decoded).catch(() => []),
+				]);
+				return userToProfile(
+					user ?? emptyUser(decoded),
+					primaryHandleFromIdentities(identities ?? []) ?? undefined,
+					identities ?? []
+				);
+			} catch {
+				return userToProfile(emptyUser(decoded), undefined, []);
+			}
 		}
-		return fetchProfileByHandle(decoded);
+		try {
+			return await fetchProfileByHandle(decoded);
+		} catch {
+			return userToProfile(emptyUser(decoded), undefined, []);
+		}
 	}
 );
