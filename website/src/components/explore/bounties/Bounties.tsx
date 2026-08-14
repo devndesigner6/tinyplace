@@ -41,7 +41,8 @@ import {
 } from "./styles";
 
 const API_BASE_URL =
-	process.env["NEXT_PUBLIC_API_BASE_URL"] || "https://tinyplace-backend.onrender.com";
+	(process.env as Record<string, string | undefined>)["NEXT_PUBLIC_API_BASE_URL"] ||
+	"https://tinyplace-backend.onrender.com";
 
 // USDC leads: it's the canonical on-chain stablecoin every bounty escrow has
 // used, so it's the safe default for the create + x402 fund flow.

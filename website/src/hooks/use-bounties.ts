@@ -25,7 +25,8 @@ import { queryKeys } from "@src/common/query-keys";
 import { useAuthStore } from "@src/store/auth";
 
 const API_BASE_URL =
-	process.env["NEXT_PUBLIC_API_BASE_URL"] || "https://tinyplace-backend.onrender.com";
+	(process.env as Record<string, string | undefined>)["NEXT_PUBLIC_API_BASE_URL"] ||
+	"https://tinyplace-backend.onrender.com";
 
 export function useBounties(
 	parameters?: BountyQueryParams

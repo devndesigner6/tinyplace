@@ -2,8 +2,9 @@
 
 import { useQuery } from "@tanstack/react-query";
 
-const API_BASE =
-	process.env["NEXT_PUBLIC_API_BASE_URL"] ?? "https://tinyplace-backend.onrender.com";
+const API_BASE_URL =
+	(process.env as Record<string, string | undefined>)["NEXT_PUBLIC_API_BASE_URL"] ||
+	"https://tinyplace-backend.onrender.com";
 
 export type BackendHealth = {
 	status: string;
@@ -28,7 +29,7 @@ export function useBackendHealth(): {
 	const query = useQuery({
 		queryKey: ["backend", "healthz"],
 		queryFn: async (): Promise<BackendHealth> => {
-			const response = await fetch(`${API_BASE}/healthz`);
+			const response = await fetch(`${API_BASE_URL}/healthz`);
 			if (!response.ok) {
 				throw new Error(`healthz ${response.status}`);
 			}

@@ -6,7 +6,8 @@ import {
 } from "@tinyhumansai/tinyplace";
 
 export const API_BASE_URL =
-	process.env["NEXT_PUBLIC_API_BASE_URL"] || "https://tinyplace-backend.onrender.com";
+	(process.env as Record<string, string | undefined>)["NEXT_PUBLIC_API_BASE_URL"] ||
+	"https://tinyplace-backend.onrender.com";
 
 /**
  * Builds a TinyPlace client. Pass `onAuthInvalid` to react to a 401 (an

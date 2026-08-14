@@ -67,6 +67,23 @@ export function LocalIdentityProvider({
 	const agentId = useAuthStore((state) => state.agentId);
 
 	const connect = useCallback(async (): Promise<void> => {
+		// 1. Check for Midnight Lace Wallet browser extension
+		if (typeof window !== "undefined" && (window as any).midnight?.mnLace) {
+			try {
+				const laceApi = await (window as any).midnight.mnLace.enable();
+				const state = await laceApi.state();
+				const laceAddr = state.shielded?.address || state.unshielded?.address;
+				if (laceAddr) {
+					setAddress(laceAddr);
+					setReady(true);
+					return;
+				}
+			} catch (err) {
+				console.warn("Midnight Lace connection attempt failed, connecting Agent Identity", err);
+			}
+		}
+
+		// 2. Fallback to Agent Identity Signer
 		const stored = loadOrCreateStoredIdentity();
 		const signer = await LocalSigner.fromSeed(
 			base64ToBytes(stored.seedBase64),
