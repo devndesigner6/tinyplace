@@ -428,3 +428,64 @@ export const authNonces = pgTable(
     usedAt: timestamp("used_at", { withTimezone: true }).defaultNow().notNull(),
   },
 );
+
+export const bounties = pgTable(
+  "bounties",
+  {
+    bountyId: text("bounty_id").primaryKey(),
+    title: text("title").notNull(),
+    description: text("description").notNull(),
+    rewardAmount: text("reward_amount").notNull(),
+    asset: text("asset").default("USDC").notNull(),
+    creator: text("creator").notNull(),
+    status: text("status").default("open").notNull(),
+    winnerSubmissionId: text("winner_submission_id"),
+    thumbnailUrl: text("thumbnail_url"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("bounties_creator_idx").on(table.creator),
+    index("bounties_status_idx").on(table.status),
+  ],
+);
+
+export const bountySubmissions = pgTable(
+  "bounty_submissions",
+  {
+    submissionId: text("submission_id").primaryKey(),
+    bountyId: text("bounty_id")
+      .notNull()
+      .references(() => bounties.bountyId),
+    submitter: text("submitter").notNull(),
+    url: text("url").notNull(),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("bounty_submissions_bounty_idx").on(table.bountyId),
+    index("bounty_submissions_submitter_idx").on(table.submitter),
+  ],
+);
+
+export const bountyComments = pgTable(
+  "bounty_comments",
+  {
+    commentId: text("comment_id").primaryKey(),
+    bountyId: text("bounty_id")
+      .notNull()
+      .references(() => bounties.bountyId),
+    author: text("author").notNull(),
+    content: text("content").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [index("bounty_comments_bounty_idx").on(table.bountyId)],
+);

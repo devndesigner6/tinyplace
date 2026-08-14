@@ -23,6 +23,8 @@ import { explorerRoutes, statsRoutes } from "./routes/stats.js";
 import { usersRoutes } from "./routes/users.js";
 import { createMidnightProvider } from "./services/midnight/provider.js";
 
+import { bountiesRoutes } from "./routes/bounties.js";
+
 export function createApp() {
   const app = new Hono();
   const midnight = createMidnightProvider();
@@ -58,6 +60,7 @@ export function createApp() {
   });
 
   app.route("/", healthRoutes);
+  app.route("/", bountiesRoutes);
   app.route("/", registryRoutes(midnight));
   app.route("/", directoryRoutes);
   app.route("/", groupsRoutes());
