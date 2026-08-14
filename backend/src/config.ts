@@ -12,7 +12,17 @@ const configSchema = z.object({
   ARTIFACT_STORAGE_PATH: z.string().default("./data/artifacts"),
   /** local talks to the undeployed Docker node; preprod/preview are public nets */
   MIDNIGHT_NETWORK: z
-    .enum(["local", "preprod", "preview"])
+    .preprocess(
+      (val) => {
+        if (typeof val === "string") {
+          const s = val.toLowerCase().trim();
+          if (s === "prepod" || s === "pre-prod") return "preprod";
+          if (s === "undeployed") return "local";
+        }
+        return val;
+      },
+      z.enum(["local", "preprod", "preview"]),
+    )
     .default("local"),
   MIDNIGHT_INDEXER_URL: z
     .string()
