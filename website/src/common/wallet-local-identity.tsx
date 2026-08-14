@@ -69,24 +69,48 @@ export function LocalIdentityProvider({
 	const connectLace = useCallback(async (): Promise<boolean> => {
 		if (typeof window === "undefined") return false;
 		const win = window as any;
-		const laceProvider = win.midnight?.mnLace || win.midnight?.lace || win.cardano?.mnLace || win.midnight;
+		const laceProvider =
+			win.midnight?.mnLace ||
+			win.midnight?.lace ||
+			win.midnight ||
+			win.cardano?.mnLace ||
+			win.cardano?.lace ||
+			win.cardano;
+
 		if (laceProvider && typeof laceProvider.enable === "function") {
 			try {
 				const laceApi = await laceProvider.enable();
-				const state = typeof laceApi.state === "function" ? await laceApi.state() : laceApi;
-				const laceAddr = state.shielded?.address || state.unshielded?.address || state.address;
+				const state = typeof laceApi?.state === "function" ? await laceApi.state() : laceApi;
+
+				let laceAddr: string | null =
+					state?.shielded?.address ||
+					state?.unshielded?.address ||
+					state?.address ||
+					null;
+
+				if (!laceAddr && typeof laceApi?.getUsedAddresses === "function") {
+					const addrs = await laceApi.getUsedAddresses();
+					if (addrs && addrs.length > 0) {
+						laceAddr = addrs[0];
+					}
+				}
+
+				if (!laceAddr && typeof laceApi?.getChangeAddress === "function") {
+					laceAddr = await laceApi.getChangeAddress();
+				}
+
 				if (laceAddr) {
 					setAddress(String(laceAddr));
 					setReady(true);
 					return true;
 				}
-			} catch (err) {
-				console.error("Midnight Lace wallet connection error:", err);
-				alert("Midnight Lace Wallet connection prompt failed or was cancelled. Please unlock your Lace extension and try again.");
+			} catch (err: any) {
+				console.error("Lace wallet connection error:", err);
+				alert(`Lace Wallet connection prompt failed or was cancelled: ${err?.message || err}`);
 				return false;
 			}
 		}
-		alert("Midnight Lace Wallet extension was not detected in your browser. Please ensure the Lace extension is unlocked and enabled for this site.");
+		alert("Lace Wallet extension was not detected in your window context. Please ensure the Lace extension is enabled for this site.");
 		return false;
 	}, []);
 
