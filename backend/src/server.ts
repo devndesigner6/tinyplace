@@ -60,6 +60,17 @@ export function createApp() {
     await next();
   });
 
+  app.get("/", (c) =>
+    c.json({
+      name: "tiny.place backend API",
+      version: "2.0.0",
+      status: "ok",
+      healthz: "/healthz",
+      settlement: config.SETTLEMENT_NETWORK,
+      midnightNetwork: midnight.network(),
+    })
+  );
+
   app.route("/", healthRoutes);
   app.route("/", activityRoutes);
   app.route("/", bountiesRoutes);

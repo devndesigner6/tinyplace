@@ -97,6 +97,9 @@ export function LocalIdentityProvider({
 	}, []);
 
 	const disconnect = useCallback((): Promise<void> => {
+		if (typeof window !== "undefined") {
+			window.localStorage.removeItem(STORAGE_KEY);
+		}
 		useAuthStore.getState().clearSession();
 		setAddress(null);
 		setReady(true);
@@ -104,21 +107,8 @@ export function LocalIdentityProvider({
 	}, []);
 
 	useEffect(() => {
-		// Initialize ready state without auto-connecting until user clicks Connect
-		const stored = typeof window !== "undefined" ? window.localStorage.getItem(STORAGE_KEY) : null;
-		if (stored) {
-			try {
-				const parsed = JSON.parse(stored) as StoredIdentity;
-				void LocalSigner.fromSeed(base64ToBytes(parsed.seedBase64), { siws: false }).then((signer) => {
-					setAuthSession(signer);
-					setAddress(signer.agentId);
-					setReady(true);
-				});
-				return;
-			} catch {
-				// Ignore parse errors
-			}
-		}
+		// Always start disconnected by default so the top right displays the Connect button
+		setAddress(null);
 		setReady(true);
 	}, []);
 
