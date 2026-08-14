@@ -68,14 +68,26 @@ export function LocalIdentityProvider({
 
 	const connectLace = useCallback(async (): Promise<boolean> => {
 		if (typeof window === "undefined") return false;
-		const win = window as any;
-		const laceProvider =
-			win.midnight?.mnLace ||
-			win.midnight?.lace ||
-			win.midnight ||
-			win.cardano?.mnLace ||
-			win.cardano?.lace ||
-			win.cardano;
+
+		const findProvider = () => {
+			const win = window as any;
+			return (
+				win.midnight?.mnLace ||
+				win.midnight?.lace ||
+				win.midnight ||
+				win.cardano?.mnLace ||
+				win.cardano?.lace ||
+				win.cardano
+			);
+		};
+
+		let laceProvider = findProvider();
+
+		// Give Chrome extension content scripts a 300ms window to inject window.cardano / window.midnight
+		if (!laceProvider || typeof laceProvider.enable !== "function") {
+			await new Promise((resolve) => setTimeout(resolve, 300));
+			laceProvider = findProvider();
+		}
 
 		if (laceProvider && typeof laceProvider.enable === "function") {
 			try {
@@ -110,7 +122,14 @@ export function LocalIdentityProvider({
 				return false;
 			}
 		}
-		alert("Lace Wallet extension was not detected in your window context. Please ensure the Lace extension is enabled for this site.");
+
+		alert(
+			"Lace Wallet extension was not detected on this page context.\n\n" +
+			"To grant Lace access to tinyplace-md.vercel.app:\n" +
+			"1. Click the Lace icon in your Chrome extensions bar (top right of browser).\n" +
+			"2. Ensure Site Access is set to 'On all sites' or allow access for this domain.\n" +
+			"3. Click Connect Wallet again!"
+		);
 		return false;
 	}, []);
 
