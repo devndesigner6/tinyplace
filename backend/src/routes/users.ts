@@ -47,12 +47,38 @@ function toUserResponse(
   };
 }
 
-async function ensureAgentRecord(agentId: string) {
+async function verifyUserOwnership(
+  auth: { agentId: string; publicKeyBase64?: string },
+  targetAgentId: string,
+): Promise<boolean> {
+  if (auth.agentId === targetAgentId || (auth.publicKeyBase64 && auth.publicKeyBase64 === targetAgentId)) {
+    return true;
+  }
+
+  const agent = await db.query.agents.findFirst({
+    where: eq(agents.id, targetAgentId),
+  });
+
+  if (agent) {
+    if (auth.publicKeyBase64 && agent.publicKeyBase64 === auth.publicKeyBase64) {
+      return true;
+    }
+    if (agent.midnightAddress && (agent.midnightAddress === targetAgentId || agent.midnightAddress === auth.agentId)) {
+      return true;
+    }
+    return false;
+  }
+
+  return true;
+}
+
+async function ensureAgentRecord(agentId: string, publicKeyBase64?: string) {
   await db
     .insert(agents)
     .values({
       id: agentId,
-      publicKeyBase64: agentId,
+      publicKeyBase64: publicKeyBase64 ?? agentId,
+      midnightAddress: agentId.startsWith("00") || agentId.startsWith("mn_") ? agentId : undefined,
       actorType: "human",
     })
     .onConflictDoNothing();
@@ -68,8 +94,9 @@ usersRoutes.get("/users/:agentId", async (c) => {
 
 usersRoutes.put("/users/:agentId", requireDirectoryAuth, async (c) => {
   const agentId = c.req.param("agentId");
-  const caller = c.get("auth").agentId;
-  if (caller !== agentId) {
+  const auth = c.get("auth");
+  const isOwner = await verifyUserOwnership(auth, agentId);
+  if (!isOwner) {
     return c.json({ error: "Forbidden: Cannot modify another user's profile", code: "FORBIDDEN" }, 403);
   }
 
@@ -82,7 +109,7 @@ usersRoutes.put("/users/:agentId", requireDirectoryAuth, async (c) => {
     })
     .parse(await c.req.json());
 
-  await ensureAgentRecord(agentId);
+  await ensureAgentRecord(agentId, auth.publicKeyBase64);
 
   const existingUser = await db.query.users.findFirst({ where: eq(users.agentId, agentId) });
   const currentMeta = (existingUser?.metadata as Record<string, unknown>) ?? {};
@@ -136,8 +163,9 @@ usersRoutes.put("/users/:agentId", requireDirectoryAuth, async (c) => {
 
 usersRoutes.put("/users/:agentId/profile", requireDirectoryAuth, async (c) => {
   const agentId = c.req.param("agentId");
-  const caller = c.get("auth").agentId;
-  if (caller !== agentId) {
+  const auth = c.get("auth");
+  const isOwner = await verifyUserOwnership(auth, agentId);
+  if (!isOwner) {
     return c.json({ error: "Forbidden: Cannot modify another user's profile", code: "FORBIDDEN" }, 403);
   }
 
@@ -154,7 +182,7 @@ usersRoutes.put("/users/:agentId/profile", requireDirectoryAuth, async (c) => {
     })
     .parse(await c.req.json());
 
-  await ensureAgentRecord(agentId);
+  await ensureAgentRecord(agentId, auth.publicKeyBase64);
 
   const existingUser = await db.query.users.findFirst({ where: eq(users.agentId, agentId) });
   const currentMeta = (existingUser?.metadata as Record<string, unknown>) ?? {};
@@ -210,8 +238,9 @@ usersRoutes.put("/users/:agentId/profile", requireDirectoryAuth, async (c) => {
 
 usersRoutes.post("/users/:agentId/email/verification", requireDirectoryAuth, async (c) => {
   const agentId = c.req.param("agentId");
-  const caller = c.get("auth").agentId;
-  if (caller !== agentId) {
+  const auth = c.get("auth");
+  const isOwner = await verifyUserOwnership(auth, agentId);
+  if (!isOwner) {
     return c.json({ error: "Forbidden: Cannot start verification for another user", code: "FORBIDDEN" }, 403);
   }
 
@@ -223,7 +252,7 @@ usersRoutes.post("/users/:agentId/email/verification", requireDirectoryAuth, asy
     })
     .parse(await c.req.json());
 
-  await ensureAgentRecord(agentId);
+  await ensureAgentRecord(agentId, auth.publicKeyBase64);
 
   const email = body.email.toLowerCase().trim();
   const code = Math.floor(100000 + Math.random() * 900000).toString();
@@ -271,8 +300,9 @@ usersRoutes.post("/users/:agentId/email/verification", requireDirectoryAuth, asy
 
 usersRoutes.post("/users/:agentId/email/verification/confirm", requireDirectoryAuth, async (c) => {
   const agentId = c.req.param("agentId");
-  const caller = c.get("auth").agentId;
-  if (caller !== agentId) {
+  const auth = c.get("auth");
+  const isOwner = await verifyUserOwnership(auth, agentId);
+  if (!isOwner) {
     return c.json({ error: "Forbidden: Cannot confirm verification for another user", code: "FORBIDDEN" }, 403);
   }
 
@@ -305,7 +335,6 @@ usersRoutes.post("/users/:agentId/email/verification/confirm", requireDirectoryA
   const codeMatches = emailVerif.codeHash === expectedHash || (devBypassAllowed && body.code.trim() === "123456");
 
   if (!codeMatches) {
-    // Record attempt count in database
     const updatedMeta = {
       ...currentMeta,
       emailVerification: {
@@ -317,9 +346,8 @@ usersRoutes.post("/users/:agentId/email/verification/confirm", requireDirectoryA
     return c.json({ error: "Invalid verification code", code: "INVALID_CODE" }, 400);
   }
 
-  await ensureAgentRecord(agentId);
+  await ensureAgentRecord(agentId, auth.publicKeyBase64);
 
-  // Clear verification challenge on success
   const updatedMeta = { ...currentMeta };
   delete updatedMeta.emailVerification;
 
