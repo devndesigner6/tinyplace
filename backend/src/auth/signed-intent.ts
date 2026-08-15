@@ -161,7 +161,7 @@ export async function verifySignedIntent(
 }
 
 /**
- * Validates signed intent against the expected endpoint mutation parameters.
+ * Validates signed intent strictly against all expected endpoint mutation parameters.
  */
 export async function enforceSignedIntent(
   reqSignedIntent: SignedTransactionIntent | undefined,
@@ -174,10 +174,11 @@ export async function enforceSignedIntent(
     amount?: string;
     asset?: string;
   },
-  options: { required?: boolean } = {},
+  options: { required?: boolean } = { required: true },
 ): Promise<{ ok: boolean; error?: string; status?: number }> {
+  const isRequired = options.required ?? true;
   if (!reqSignedIntent) {
-    if (options.required ?? false) {
+    if (isRequired) {
       return { ok: false, error: "Cryptographically signed transaction intent is required", status: 401 };
     }
     return { ok: true };
@@ -195,8 +196,24 @@ export async function enforceSignedIntent(
     return { ok: false, error: `Intent resourceId mismatch: expected ${expected.resourceId}, got ${reqSignedIntent.resourceId}`, status: 400 };
   }
 
-  if (expected.amount && reqSignedIntent.amount && reqSignedIntent.amount !== expected.amount) {
-    return { ok: false, error: `Intent amount mismatch: expected ${expected.amount}, got ${reqSignedIntent.amount}`, status: 400 };
+  if (expected.contractAddress && reqSignedIntent.contractAddress !== expected.contractAddress) {
+    return { ok: false, error: `Intent contractAddress mismatch: expected ${expected.contractAddress}, got ${reqSignedIntent.contractAddress}`, status: 400 };
+  }
+
+  if (expected.network && reqSignedIntent.network !== expected.network) {
+    return { ok: false, error: `Intent network mismatch: expected ${expected.network}, got ${reqSignedIntent.network}`, status: 400 };
+  }
+
+  if (expected.amount !== undefined) {
+    if (!reqSignedIntent.amount || reqSignedIntent.amount !== expected.amount) {
+      return { ok: false, error: `Intent amount mismatch: expected ${expected.amount}, got ${reqSignedIntent.amount ?? "undefined"}`, status: 400 };
+    }
+  }
+
+  if (expected.asset !== undefined) {
+    if (!reqSignedIntent.asset || reqSignedIntent.asset !== expected.asset) {
+      return { ok: false, error: `Intent asset mismatch: expected ${expected.asset}, got ${reqSignedIntent.asset ?? "undefined"}`, status: 400 };
+    }
   }
 
   const result = await verifySignedIntent(reqSignedIntent);

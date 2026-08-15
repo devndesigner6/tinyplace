@@ -8,6 +8,7 @@ import { sha512 } from "@noble/hashes/sha512.js";
 ed.etc.sha512Sync = (...m) => sha512(ed.etc.concatBytes(...m));
 
 import {
+  enforceSignedIntent,
   serializeIntentForSigning,
   verifySignedIntent,
   type SignedTransactionIntent,
@@ -468,6 +469,127 @@ describe("Signed Transaction Intent Verification", () => {
     const res = await verifySignedIntent(intent);
     expect(res.valid).toBe(false);
     expect(res.error).toContain("expired");
+  });
+
+  it("strictly enforces mandatory intent when missing", async () => {
+    const res = await enforceSignedIntent(undefined, {
+      actor: "actor_1",
+      action: "fund_escrow",
+      resourceId: "esc_1",
+    }, { required: true });
+
+    expect(res.ok).toBe(false);
+    expect(res.status).toBe(401);
+    expect(res.error).toContain("required");
+  });
+
+  it("strictly rejects network mismatch in signed intent", async () => {
+    const privKey = ed.utils.randomPrivateKey();
+    const pubKey = await ed.getPublicKey(privKey);
+    const pubKeyBase64Str = Buffer.from(pubKey).toString("base64");
+
+    const intent: TransactionIntent = {
+      actor: pubKeyBase64Str,
+      action: "fund_escrow",
+      contractAddress: "contract_addr_1",
+      network: "midnight:testnet_wrong",
+      resourceId: "esc_net_1",
+      nonce: `nonce_net_${nanoid()}`,
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+    };
+
+    const sig = await ed.sign(serializeIntentForSigning(intent), privKey);
+    const signed: SignedTransactionIntent = {
+      ...intent,
+      signatureHex: Buffer.from(sig).toString("hex"),
+      publicKeyBase64: pubKeyBase64Str,
+    };
+
+    const res = await enforceSignedIntent(signed, {
+      actor: pubKeyBase64Str,
+      action: "fund_escrow",
+      contractAddress: "contract_addr_1",
+      network: "midnight:preprod",
+      resourceId: "esc_net_1",
+    }, { required: true });
+
+    expect(res.ok).toBe(false);
+    expect(res.status).toBe(400);
+    expect(res.error).toContain("network mismatch");
+  });
+
+  it("strictly rejects contract address mismatch in signed intent", async () => {
+    const privKey = ed.utils.randomPrivateKey();
+    const pubKey = await ed.getPublicKey(privKey);
+    const pubKeyBase64Str = Buffer.from(pubKey).toString("base64");
+
+    const intent: TransactionIntent = {
+      actor: pubKeyBase64Str,
+      action: "fund_escrow",
+      contractAddress: "malicious_contract_addr",
+      network: "midnight:preprod",
+      resourceId: "esc_contract_1",
+      nonce: `nonce_contract_${nanoid()}`,
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+    };
+
+    const sig = await ed.sign(serializeIntentForSigning(intent), privKey);
+    const signed: SignedTransactionIntent = {
+      ...intent,
+      signatureHex: Buffer.from(sig).toString("hex"),
+      publicKeyBase64: pubKeyBase64Str,
+    };
+
+    const res = await enforceSignedIntent(signed, {
+      actor: pubKeyBase64Str,
+      action: "fund_escrow",
+      contractAddress: "expected_contract_addr",
+      network: "midnight:preprod",
+      resourceId: "esc_contract_1",
+    }, { required: true });
+
+    expect(res.ok).toBe(false);
+    expect(res.status).toBe(400);
+    expect(res.error).toContain("contractAddress mismatch");
+  });
+
+  it("strictly rejects amount or asset mismatch in signed intent", async () => {
+    const privKey = ed.utils.randomPrivateKey();
+    const pubKey = await ed.getPublicKey(privKey);
+    const pubKeyBase64Str = Buffer.from(pubKey).toString("base64");
+
+    const intent: TransactionIntent = {
+      actor: pubKeyBase64Str,
+      action: "fund_escrow",
+      contractAddress: "contract_addr_1",
+      network: "midnight:preprod",
+      resourceId: "esc_amount_1",
+      amount: "10",
+      asset: "NIGHT",
+      nonce: `nonce_amount_${nanoid()}`,
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+    };
+
+    const sig = await ed.sign(serializeIntentForSigning(intent), privKey);
+    const signed: SignedTransactionIntent = {
+      ...intent,
+      signatureHex: Buffer.from(sig).toString("hex"),
+      publicKeyBase64: pubKeyBase64Str,
+    };
+
+    const resAmount = await enforceSignedIntent(signed, {
+      actor: pubKeyBase64Str,
+      action: "fund_escrow",
+      contractAddress: "contract_addr_1",
+      network: "midnight:preprod",
+      resourceId: "esc_amount_1",
+      amount: "100", // Expected 100, got 10
+      asset: "NIGHT",
+    }, { required: true });
+
+    expect(resAmount.ok).toBe(false);
+    expect(resAmount.status).toBe(400);
+    expect(resAmount.error).toContain("amount mismatch");
   });
 });
 

@@ -83,17 +83,18 @@ export function marketplaceRoutes(midnight: MidnightProvider) {
     const sellerAgentId = c.get("auth").agentId;
     const listingId = `lst_${nanoid(10)}`;
 
-    if (body.signedIntent) {
-      const intentCheck = await enforceSignedIntent(body.signedIntent, {
-        actor: sellerAgentId,
-        action: "anchor_listing",
-        resourceId: listingId,
-        amount: body.priceAmount,
-        asset: body.priceAsset,
-      });
-      if (!intentCheck.ok) {
-        return c.json({ error: intentCheck.error, code: "INVALID_SIGNED_INTENT" }, (intentCheck.status as any) ?? 403);
-      }
+    const intentCheck = await enforceSignedIntent(body.signedIntent, {
+      actor: sellerAgentId,
+      action: "anchor_listing",
+      contractAddress: midnight.contractAddresses().listingRegistry,
+      network: body.priceNetwork,
+      resourceId: listingId,
+      amount: body.priceAmount,
+      asset: body.priceAsset,
+    }, { required: true });
+
+    if (!intentCheck.ok) {
+      return c.json({ error: intentCheck.error, code: "INVALID_SIGNED_INTENT" }, (intentCheck.status as any) ?? 401);
     }
     await db.insert(listings).values({
       id: listingId,

@@ -76,15 +76,16 @@ export function registryRoutes(midnight: MidnightProvider) {
     }
 
     const agentId = body.cryptoId;
-    if (body.signedIntent) {
-      const intentCheck = await enforceSignedIntent(body.signedIntent, {
-        actor: c.get("auth").agentId,
-        action: "claim_handle",
-        resourceId: name,
-      });
-      if (!intentCheck.ok) {
-        return c.json({ error: intentCheck.error, code: "INVALID_SIGNED_INTENT" }, (intentCheck.status as any) ?? 403);
-      }
+    const intentCheck = await enforceSignedIntent(body.signedIntent, {
+      actor: c.get("auth").agentId,
+      action: "claim_handle",
+      contractAddress: midnight.contractAddresses().handleRegistry,
+      network: "midnight:preprod",
+      resourceId: name,
+    }, { required: true });
+
+    if (!intentCheck.ok) {
+      return c.json({ error: intentCheck.error, code: "INVALID_SIGNED_INTENT" }, (intentCheck.status as any) ?? 401);
     }
     await db
       .insert(agents)

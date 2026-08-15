@@ -145,17 +145,18 @@ export function escrowRoutes(midnight: MidnightProvider) {
 
     const escrowId = body.escrowId ?? `esc_${nanoid(12)}`;
 
-    if (body.signedIntent) {
-      const intentCheck = await enforceSignedIntent(body.signedIntent, {
-        actor: c.get("auth").agentId,
-        action: "create_escrow",
-        resourceId: escrowId,
-        amount: body.amount,
-        asset: body.asset,
-      });
-      if (!intentCheck.ok) {
-        return c.json({ error: intentCheck.error, code: "INVALID_SIGNED_INTENT" }, (intentCheck.status as any) ?? 403);
-      }
+    const intentCheck = await enforceSignedIntent(body.signedIntent, {
+      actor: c.get("auth").agentId,
+      action: "create_escrow",
+      contractAddress: midnight.contractAddresses().escrow,
+      network: body.network,
+      resourceId: escrowId,
+      amount: body.amount,
+      asset: body.asset,
+    }, { required: true });
+
+    if (!intentCheck.ok) {
+      return c.json({ error: intentCheck.error, code: "INVALID_SIGNED_INTENT" }, (intentCheck.status as any) ?? 401);
     }
 
     await db.insert(escrows).values({
@@ -223,17 +224,18 @@ export function escrowRoutes(midnight: MidnightProvider) {
     if (!row) return c.json({ error: "Escrow not found" }, 404);
     assertParty("client", c.get("auth").agentId, row.client, row.provider);
 
-    if (body.signedIntent) {
-      const intentCheck = await enforceSignedIntent(body.signedIntent, {
-        actor: c.get("auth").agentId,
-        action: "fund_escrow",
-        resourceId: escrowId,
-        amount: row.amount,
-        asset: row.asset,
-      });
-      if (!intentCheck.ok) {
-        return c.json({ error: intentCheck.error, code: "INVALID_SIGNED_INTENT" }, (intentCheck.status as any) ?? 403);
-      }
+    const intentCheck = await enforceSignedIntent(body.signedIntent, {
+      actor: c.get("auth").agentId,
+      action: "fund_escrow",
+      contractAddress: midnight.contractAddresses().escrow,
+      network: row.network,
+      resourceId: escrowId,
+      amount: row.amount,
+      asset: row.asset,
+    }, { required: true });
+
+    if (!intentCheck.ok) {
+      return c.json({ error: intentCheck.error, code: "INVALID_SIGNED_INTENT" }, (intentCheck.status as any) ?? 401);
     }
 
     const chainJob = await createChainJob(
@@ -320,15 +322,16 @@ export function escrowRoutes(midnight: MidnightProvider) {
     if (!row) return c.json({ error: "Escrow not found" }, 404);
     assertParty("provider", c.get("auth").agentId, row.client, row.provider);
 
-    if (body.signedIntent) {
-      const intentCheck = await enforceSignedIntent(body.signedIntent, {
-        actor: c.get("auth").agentId,
-        action: "deliver_escrow",
-        resourceId: escrowId,
-      });
-      if (!intentCheck.ok) {
-        return c.json({ error: intentCheck.error, code: "INVALID_SIGNED_INTENT" }, (intentCheck.status as any) ?? 403);
-      }
+    const intentCheck = await enforceSignedIntent(body.signedIntent, {
+      actor: c.get("auth").agentId,
+      action: "deliver_escrow",
+      contractAddress: midnight.contractAddresses().escrow,
+      network: row.network,
+      resourceId: escrowId,
+    }, { required: true });
+
+    if (!intentCheck.ok) {
+      return c.json({ error: intentCheck.error, code: "INVALID_SIGNED_INTENT" }, (intentCheck.status as any) ?? 401);
     }
 
     let outputHash = body.outputHash;
@@ -417,15 +420,16 @@ export function escrowRoutes(midnight: MidnightProvider) {
     if (!row) return c.json({ error: "Escrow not found" }, 404);
     assertParty("client", c.get("auth").agentId, row.client, row.provider);
 
-    if (body.signedIntent) {
-      const intentCheck = await enforceSignedIntent(body.signedIntent, {
-        actor: c.get("auth").agentId,
-        action: "accept_delivery",
-        resourceId: escrowId,
-      });
-      if (!intentCheck.ok) {
-        return c.json({ error: intentCheck.error, code: "INVALID_SIGNED_INTENT" }, (intentCheck.status as any) ?? 403);
-      }
+    const intentCheck = await enforceSignedIntent(body.signedIntent, {
+      actor: c.get("auth").agentId,
+      action: "accept_delivery",
+      contractAddress: midnight.contractAddresses().escrow,
+      network: row.network,
+      resourceId: escrowId,
+    }, { required: true });
+
+    if (!intentCheck.ok) {
+      return c.json({ error: intentCheck.error, code: "INVALID_SIGNED_INTENT" }, (intentCheck.status as any) ?? 401);
     }
 
     const releaseJob = await createChainJob(
@@ -507,15 +511,16 @@ export function escrowRoutes(midnight: MidnightProvider) {
       return c.json({ error: "Forbidden" }, 403);
     }
 
-    if (body.signedIntent) {
-      const intentCheck = await enforceSignedIntent(body.signedIntent, {
-        actor,
-        action: "dispute_escrow",
-        resourceId: escrowId,
-      });
-      if (!intentCheck.ok) {
-        return c.json({ error: intentCheck.error, code: "INVALID_SIGNED_INTENT" }, (intentCheck.status as any) ?? 403);
-      }
+    const intentCheck = await enforceSignedIntent(body.signedIntent, {
+      actor,
+      action: "dispute_escrow",
+      contractAddress: midnight.contractAddresses().escrow,
+      network: row.network,
+      resourceId: escrowId,
+    }, { required: true });
+
+    if (!intentCheck.ok) {
+      return c.json({ error: intentCheck.error, code: "INVALID_SIGNED_INTENT" }, (intentCheck.status as any) ?? 401);
     }
 
     const disputeJob = await createChainJob(
@@ -529,6 +534,10 @@ export function escrowRoutes(midnight: MidnightProvider) {
       },
       midnight,
     );
+
+    if (disputeJob.status !== "finalized") {
+      return c.json({ ...toApiEscrow(row), chainJob: disputeJob, status: "submitted" }, 202);
+    }
 
     await applyEscrowTransition(escrowId, "dispute", {
       dispute: {
@@ -561,15 +570,16 @@ export function escrowRoutes(midnight: MidnightProvider) {
     if (!row) return c.json({ error: "Escrow not found" }, 404);
     assertParty("client", c.get("auth").agentId, row.client, row.provider);
 
-    if (body.signedIntent) {
-      const intentCheck = await enforceSignedIntent(body.signedIntent, {
-        actor: c.get("auth").agentId,
-        action: "refund_escrow",
-        resourceId: escrowId,
-      });
-      if (!intentCheck.ok) {
-        return c.json({ error: intentCheck.error, code: "INVALID_SIGNED_INTENT" }, (intentCheck.status as any) ?? 403);
-      }
+    const intentCheck = await enforceSignedIntent(body.signedIntent, {
+      actor: c.get("auth").agentId,
+      action: "refund_escrow",
+      contractAddress: midnight.contractAddresses().escrow,
+      network: row.network,
+      resourceId: escrowId,
+    }, { required: true });
+
+    if (!intentCheck.ok) {
+      return c.json({ error: intentCheck.error, code: "INVALID_SIGNED_INTENT" }, (intentCheck.status as any) ?? 401);
     }
 
     // Verify refund eligibility: disputed OR past deadline
