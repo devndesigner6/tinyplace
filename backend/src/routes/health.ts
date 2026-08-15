@@ -9,15 +9,31 @@ import {
 
 export const healthRoutes = new Hono();
 
-healthRoutes.get("/healthz", (c) => {
+healthRoutes.get("/healthz", async (c) => {
   const midnight = createMidnightProvider();
   const contracts = midnight.contractAddresses();
+  
+  let indexerReachable = false;
+  try {
+    const res = await fetch(config.MIDNIGHT_INDEXER_URL, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ query: "{ block { height } }" }),
+    });
+    indexerReachable = res.ok;
+  } catch {
+    indexerReachable = false;
+  }
+
+  const isReady = contractsDeployed(midnight) && (config.MIDNIGHT_NETWORK !== "preprod" || indexerReachable);
+
   return c.json({
     status: "ok",
     settlement: config.SETTLEMENT_NETWORK,
     midnightNetwork: midnight.network(),
     contracts,
-    contractsReady: contractsDeployed(midnight),
+    contractsReady: isReady,
+    indexerConnected: indexerReachable,
     hackathonDevMode: config.HACKATHON_DEV_MODE,
     hackathonDevFallback: hackathonDevFallbackEnabled(midnight),
     timestamp: new Date().toISOString(),

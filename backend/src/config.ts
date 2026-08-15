@@ -41,8 +41,8 @@ const configSchema = z.object({
   ESCROW_CONTRACT_ADDRESS: z.string().optional(),
   ATTESTATION_CONTRACT_ADDRESS: z.string().optional(),
   SETTLEMENT_NETWORK: z.enum(["midnight", "solana"]).default("midnight"),
-  /** Allow off-chain activation when Midnight contracts are not deployed (hackathon UI demo). */
-  HACKATHON_DEV_MODE: z.coerce.boolean().default(true),
+  /** Fail closed in production. Off-chain activation requires explicit local flag. */
+  HACKATHON_DEV_MODE: z.coerce.boolean().default(false),
   AUTH_TIMESTAMP_SKEW_MS: z.coerce.number().default(300_000),
   CORS_ORIGIN: z.string().default("http://localhost:3000"),
 });

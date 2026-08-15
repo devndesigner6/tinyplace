@@ -39,10 +39,12 @@ export circuit createEscrow(
   });
 }
 
-export circuit fundEscrow(escrow_id_hash: Bytes<32>): [] {
+export circuit fundEscrow(escrow_id_hash: Bytes<32>, caller_commitment: Bytes<32>): [] {
   const key = disclose(escrow_id_hash);
+  assert(escrows.member(key), "escrow not found");
   const existing = escrows.lookup(key);
   assert(existing.status == 0, "escrow status must be pending_fund");
+  assert(disclose(caller_commitment) == existing.buyer_commitment, "unauthorized: caller is not escrow buyer");
   escrows.insert(key, EscrowRecord {
     buyer_commitment: existing.buyer_commitment,
     seller_commitment: existing.seller_commitment,
@@ -55,10 +57,12 @@ export circuit fundEscrow(escrow_id_hash: Bytes<32>): [] {
   });
 }
 
-export circuit deliverEscrow(escrow_id_hash: Bytes<32>): [] {
+export circuit deliverEscrow(escrow_id_hash: Bytes<32>, caller_commitment: Bytes<32>): [] {
   const key = disclose(escrow_id_hash);
+  assert(escrows.member(key), "escrow not found");
   const existing = escrows.lookup(key);
   assert(existing.status == 1, "escrow status must be funded");
+  assert(disclose(caller_commitment) == existing.seller_commitment, "unauthorized: caller is not escrow seller");
   escrows.insert(key, EscrowRecord {
     buyer_commitment: existing.buyer_commitment,
     seller_commitment: existing.seller_commitment,
@@ -71,10 +75,12 @@ export circuit deliverEscrow(escrow_id_hash: Bytes<32>): [] {
   });
 }
 
-export circuit acceptDelivery(escrow_id_hash: Bytes<32>): [] {
+export circuit acceptDelivery(escrow_id_hash: Bytes<32>, caller_commitment: Bytes<32>): [] {
   const key = disclose(escrow_id_hash);
+  assert(escrows.member(key), "escrow not found");
   const existing = escrows.lookup(key);
   assert(existing.status == 2, "escrow status must be delivered");
+  assert(disclose(caller_commitment) == existing.buyer_commitment, "unauthorized: caller is not escrow buyer");
   escrows.insert(key, EscrowRecord {
     buyer_commitment: existing.buyer_commitment,
     seller_commitment: existing.seller_commitment,
@@ -87,10 +93,12 @@ export circuit acceptDelivery(escrow_id_hash: Bytes<32>): [] {
   });
 }
 
-export circuit releaseEscrow(escrow_id_hash: Bytes<32>): [] {
+export circuit releaseEscrow(escrow_id_hash: Bytes<32>, caller_commitment: Bytes<32>): [] {
   const key = disclose(escrow_id_hash);
+  assert(escrows.member(key), "escrow not found");
   const existing = escrows.lookup(key);
   assert(existing.status == 3, "escrow status must be accepted_delivery");
+  assert(disclose(caller_commitment) == existing.buyer_commitment, "unauthorized: caller is not escrow buyer");
   escrows.insert(key, EscrowRecord {
     buyer_commitment: existing.buyer_commitment,
     seller_commitment: existing.seller_commitment,
@@ -103,10 +111,13 @@ export circuit releaseEscrow(escrow_id_hash: Bytes<32>): [] {
   });
 }
 
-export circuit disputeEscrow(escrow_id_hash: Bytes<32>): [] {
+export circuit disputeEscrow(escrow_id_hash: Bytes<32>, caller_commitment: Bytes<32>): [] {
   const key = disclose(escrow_id_hash);
+  assert(escrows.member(key), "escrow not found");
   const existing = escrows.lookup(key);
   assert(existing.status == 1 || existing.status == 2, "escrow status must be funded or delivered");
+  const caller = disclose(caller_commitment);
+  assert(caller == existing.buyer_commitment || caller == existing.seller_commitment, "unauthorized: caller is not a party to the escrow");
   escrows.insert(key, EscrowRecord {
     buyer_commitment: existing.buyer_commitment,
     seller_commitment: existing.seller_commitment,
@@ -119,10 +130,12 @@ export circuit disputeEscrow(escrow_id_hash: Bytes<32>): [] {
   });
 }
 
-export circuit refundEscrow(escrow_id_hash: Bytes<32>): [] {
+export circuit refundEscrow(escrow_id_hash: Bytes<32>, caller_commitment: Bytes<32>): [] {
   const key = disclose(escrow_id_hash);
+  assert(escrows.member(key), "escrow not found");
   const existing = escrows.lookup(key);
   assert(existing.status == 5, "escrow status must be disputed");
+  assert(disclose(caller_commitment) == existing.buyer_commitment, "unauthorized: caller is not escrow buyer");
   escrows.insert(key, EscrowRecord {
     buyer_commitment: existing.buyer_commitment,
     seller_commitment: existing.seller_commitment,
@@ -134,3 +147,4 @@ export circuit refundEscrow(escrow_id_hash: Bytes<32>): [] {
     deadline: existing.deadline
   });
 }
+

@@ -19,6 +19,10 @@ export circuit anchorListing(
   accepted_token: Bytes<32>
 ): [] {
   const key = disclose(listing_id_hash);
+  if (listings.member(key)) {
+    const existing = listings.lookup(key);
+    assert(disclose(seller_commitment) == existing.seller_commitment, "unauthorized: cannot overwrite another seller listing");
+  }
   listings.insert(key, ListingRecord {
     seller_commitment: disclose(seller_commitment),
     version_hash: disclose(version_hash),
@@ -26,3 +30,4 @@ export circuit anchorListing(
     accepted_token: disclose(accepted_token)
   });
 }
+

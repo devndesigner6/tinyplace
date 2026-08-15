@@ -54,6 +54,15 @@ export function jobToCircuitCall(kind: string, payload: Record<string, unknown>)
           payload["expiresAt"] ?? BigInt(Math.floor(Date.now() / 1000) + 365 * 24 * 3600),
         ],
       };
+    case "handle_deactivate":
+      return {
+        contract: "handleRegistry",
+        circuit: "deactivateHandle",
+        args: [
+          payload["handle"] ?? payload["handle_hash"],
+          payload["callerCommitment"] ?? payload["ownerCommitment"],
+        ],
+      };
     case "listing_anchor":
       return {
         contract: "listingRegistry",
@@ -82,17 +91,59 @@ export function jobToCircuitCall(kind: string, payload: Record<string, unknown>)
         ],
       };
     case "escrow_fund":
-      return { contract: "escrow", circuit: "fundEscrow", args: [payload["escrowId"]] };
+      return {
+        contract: "escrow",
+        circuit: "fundEscrow",
+        args: [
+          payload["escrowId"],
+          payload["callerCommitment"] ?? payload["buyerCommitment"] ?? payload["client"],
+        ],
+      };
     case "escrow_deliver":
-      return { contract: "escrow", circuit: "deliverEscrow", args: [payload["escrowId"]] };
+      return {
+        contract: "escrow",
+        circuit: "deliverEscrow",
+        args: [
+          payload["escrowId"],
+          payload["callerCommitment"] ?? payload["sellerCommitment"] ?? payload["provider"],
+        ],
+      };
     case "escrow_accept":
-      return { contract: "escrow", circuit: "acceptDelivery", args: [payload["escrowId"]] };
+      return {
+        contract: "escrow",
+        circuit: "acceptDelivery",
+        args: [
+          payload["escrowId"],
+          payload["callerCommitment"] ?? payload["buyerCommitment"] ?? payload["client"],
+        ],
+      };
     case "escrow_release":
-      return { contract: "escrow", circuit: "releaseEscrow", args: [payload["escrowId"]] };
+      return {
+        contract: "escrow",
+        circuit: "releaseEscrow",
+        args: [
+          payload["escrowId"],
+          payload["callerCommitment"] ?? payload["buyerCommitment"] ?? payload["client"],
+        ],
+      };
     case "escrow_dispute":
-      return { contract: "escrow", circuit: "disputeEscrow", args: [payload["escrowId"]] };
+      return {
+        contract: "escrow",
+        circuit: "disputeEscrow",
+        args: [
+          payload["escrowId"],
+          payload["callerCommitment"] ?? payload["actor"] ?? payload["buyerCommitment"] ?? payload["sellerCommitment"],
+        ],
+      };
     case "escrow_refund":
-      return { contract: "escrow", circuit: "refundEscrow", args: [payload["escrowId"]] };
+      return {
+        contract: "escrow",
+        circuit: "refundEscrow",
+        args: [
+          payload["escrowId"],
+          payload["callerCommitment"] ?? payload["buyerCommitment"] ?? payload["client"],
+        ],
+      };
     case "attestation_anchor":
       return {
         contract: "attestation",

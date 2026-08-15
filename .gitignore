@@ -54,8 +54,7 @@ sdk/python/**/*.py[cod]
 website/.env.local.bak
 sdk/python/.coverage
 
-# Hackathon temporary status notes
-docs/hackathon/
+# Hackathon documentation
 contracts-midnight/midnight-level-db/
 
 

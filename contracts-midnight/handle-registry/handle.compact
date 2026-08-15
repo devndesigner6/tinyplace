@@ -27,10 +27,12 @@ export circuit claimHandle(
   });
 }
 
-export circuit deactivateHandle(handle_hash: Bytes<32>): [] {
+export circuit deactivateHandle(handle_hash: Bytes<32>, caller_commitment: Bytes<32>): [] {
   const key = disclose(handle_hash);
   assert(handles.member(key), "handle not registered");
   const existing = handles.lookup(key);
+  assert(existing.status == 1, "handle is not active");
+  assert(disclose(caller_commitment) == existing.owner_commitment, "unauthorized: caller is not handle owner");
   handles.insert(key, HandleRecord {
     owner_commitment: existing.owner_commitment,
     profile_version_hash: existing.profile_version_hash,
@@ -38,3 +40,4 @@ export circuit deactivateHandle(handle_hash: Bytes<32>): [] {
     expires_at: existing.expires_at
   });
 }
+
