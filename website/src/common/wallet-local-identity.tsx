@@ -78,7 +78,11 @@ export function LocalIdentityProvider({
 				const state = typeof walletApi?.state === "function" ? await walletApi.state() : walletApi;
 				const laceAddr = state?.shielded?.address || state?.unshielded?.address || state?.address;
 				if (laceAddr) {
-					setAddress(String(laceAddr));
+					const addrStr = String(laceAddr);
+					const stored = loadOrCreateStoredIdentity();
+					const signer = await LocalSigner.fromSeed(base64ToBytes(stored.seedBase64), { siws: false });
+					useAuthStore.getState().setSigner(signer, addrStr);
+					setAddress(addrStr);
 					setReady(true);
 					return true;
 				}
@@ -115,7 +119,11 @@ export function LocalIdentityProvider({
 				}
 
 				if (laceAddr) {
-					setAddress(String(laceAddr));
+					const addrStr = String(laceAddr);
+					const stored = loadOrCreateStoredIdentity();
+					const signer = await LocalSigner.fromSeed(base64ToBytes(stored.seedBase64), { siws: false });
+					useAuthStore.getState().setSigner(signer, addrStr);
+					setAddress(addrStr);
 					setReady(true);
 					return true;
 				}
@@ -156,10 +164,16 @@ export function LocalIdentityProvider({
 	}, []);
 
 	useEffect(() => {
-		// Always start disconnected by default so the top right displays the Connect button
+		if (typeof window !== "undefined") {
+			const raw = window.localStorage.getItem(STORAGE_KEY);
+			if (raw) {
+				void connectAgent();
+				return;
+			}
+		}
 		setAddress(null);
 		setReady(true);
-	}, []);
+	}, [connectAgent]);
 
 	const signMessage = useMemo<SignMessageFunction | undefined>(() => {
 		if (!agentId) return undefined;

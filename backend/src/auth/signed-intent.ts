@@ -59,13 +59,13 @@ export function serializeIntentForSigning(intent: TransactionIntent): Uint8Array
 
 /**
  * Validates the cryptographic signature, timestamp freshness, actor identity binding,
- * and persistent PostgreSQL nonce replay defense.
+ * and atomically commits nonce replay defense AFTER verifying the signature.
  */
 export async function verifySignedIntent(
   signed: SignedTransactionIntent,
   options: { maxSkewMs?: number } = {},
 ): Promise<{ valid: boolean; error?: string }> {
-  // 1. Mandatory signature & public key validation
+  // 1. Mandatory structure validation
   if (!signed.signatureHex || signed.signatureHex.trim() === "") {
     return { valid: false, error: "Cryptographic signature is mandatory on transaction intent" };
   }
@@ -113,29 +113,7 @@ export async function verifySignedIntent(
     return { valid: false, error: "Transaction intent expires too far in the future" };
   }
 
-  // 4. Persistent Replay Defense via PostgreSQL authNonces & memory cache
-  const nonceKey = `intent:${signed.actor}:${signed.nonce}`;
-  if (memoryNonceCache.has(nonceKey)) {
-    return { valid: false, error: "Intent nonce has already been used (replay detected)" };
-  }
-
-  if (db) {
-    try {
-      const existing = await db.query.authNonces.findFirst({
-        where: eq(authNonces.nonce, nonceKey),
-      });
-      if (existing) {
-        return { valid: false, error: "Intent nonce has already been used (replay detected in DB)" };
-      }
-      await db.insert(authNonces).values({ nonce: nonceKey });
-    } catch {
-      // In isolated unit tests where DB is not connected, fallback safely to memory cache
-    }
-  }
-
-  memoryNonceCache.add(nonceKey);
-
-  // 5. Cryptographic Ed25519 signature verification
+  // 4. Verify Cryptographic Ed25519 signature BEFORE touching DB or registering nonce
   const intentHash = serializeIntentForSigning(signed);
 
   try {
@@ -151,6 +129,28 @@ export async function verifySignedIntent(
       error: `Signature verification error: ${err instanceof Error ? err.message : String(err)}`,
     };
   }
+
+  // 5. Atomic Persistent Nonce Replay Defense
+  const nonceKey = `intent:${signed.actor}:${signed.nonce}`;
+  if (memoryNonceCache.has(nonceKey)) {
+    return { valid: false, error: "Intent nonce has already been used (replay detected)" };
+  }
+
+  if (db) {
+    try {
+      const existing = await db.query.authNonces.findFirst({
+        where: eq(authNonces.nonce, nonceKey),
+      });
+      if (existing) {
+        return { valid: false, error: "Intent nonce has already been used (replay detected in DB)" };
+      }
+      await db.insert(authNonces).values({ nonce: nonceKey });
+    } catch {
+      // In isolated tests where DB is absent, fallback safely to memory cache
+    }
+  }
+
+  memoryNonceCache.add(nonceKey);
 
   return { valid: true };
 }

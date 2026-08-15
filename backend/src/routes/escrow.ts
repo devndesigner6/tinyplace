@@ -352,9 +352,13 @@ export function escrowRoutes(midnight: MidnightProvider) {
       midnight,
     );
 
+    if (releaseJob.status !== "finalized") {
+      return c.json({ ...toApiEscrow(row), chainJob: releaseJob, status: "submitted" }, 202);
+    }
+
     await applyEscrowTransition(escrowId, "release", {
       resolvedAt: new Date(),
-      onChainTx: releaseJob.status === "finalized" ? releaseJob.txHash : row.onChainTx,
+      onChainTx: releaseJob.txHash,
     });
 
     await db.insert(ledgerEntries).values({
@@ -365,7 +369,7 @@ export function escrowRoutes(midnight: MidnightProvider) {
       amount: row.amount,
       asset: row.asset,
       network: row.network,
-      txHash: releaseJob.status === "finalized" ? releaseJob.txHash : undefined,
+      txHash: releaseJob.txHash,
       resourceType: "escrow",
       resourceId: escrowId,
     });
@@ -377,7 +381,7 @@ export function escrowRoutes(midnight: MidnightProvider) {
       delta: 10,
       resourceType: "escrow",
       resourceId: escrowId,
-      txHash: releaseJob.status === "finalized" ? releaseJob.txHash : undefined,
+      txHash: releaseJob.txHash,
     });
 
     if (row.jobId) {
@@ -404,7 +408,7 @@ export function escrowRoutes(midnight: MidnightProvider) {
     if (actor !== row.client && actor !== row.provider) {
       return c.json({ error: "Forbidden" }, 403);
     }
-    await createChainJob(
+    const disputeJob = await createChainJob(
       {
         kind: "escrow_dispute",
         agentId: actor,
@@ -429,7 +433,7 @@ export function escrowRoutes(midnight: MidnightProvider) {
     const updated = await db.query.escrows.findFirst({
       where: eq(escrows.escrowId, escrowId),
     });
-    return c.json(toApiEscrow(updated!));
+    return c.json({ ...toApiEscrow(updated!), chainJob: disputeJob });
   });
 
   app.post("/escrow/:escrowId/refund", requireDirectoryAuth, async (c) => {
@@ -474,9 +478,13 @@ export function escrowRoutes(midnight: MidnightProvider) {
       midnight,
     );
 
+    if (refundJob.status !== "finalized") {
+      return c.json({ ...toApiEscrow(row), chainJob: refundJob, status: "submitted" }, 202);
+    }
+
     await applyEscrowTransition(escrowId, "refund", {
       resolvedAt: new Date(),
-      onChainTx: refundJob.status === "finalized" ? refundJob.txHash : row.onChainTx,
+      onChainTx: refundJob.txHash,
     });
 
     if (row.jobId) {
