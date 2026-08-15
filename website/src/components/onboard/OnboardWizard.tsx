@@ -15,13 +15,11 @@ import {
 import { createClient, createOnboardClient } from "@src/common/api-client";
 import type { FunctionComponent } from "@src/common/types";
 
-type StepKey = "email" | "profile" | "handle" | "fund" | "done";
+type StepKey = "profile" | "handle" | "fund" | "done";
 
 type Step = { key: StepKey; titleKey: string };
 
-// Fund the local Midnight stack before claiming an identity on-chain.
 const STEPS: Array<Step> = [
-	{ key: "email", titleKey: "onboard.stepEmail" },
 	{ key: "profile", titleKey: "onboard.stepProfile" },
 	{ key: "fund", titleKey: "onboard.stepWallet" },
 	{ key: "handle", titleKey: "onboard.stepIdentity" },
@@ -181,122 +179,6 @@ function Stepper({
 	);
 }
 
-function EmailStep({
-	client,
-	wallet,
-	onDone,
-}: {
-	client: TinyPlaceClient;
-	wallet: string;
-	onDone: () => void;
-}): ReactElement {
-	const { t } = useTranslation();
-	const [email, setEmail] = useState("");
-	const [code, setCode] = useState("");
-	const [phase, setPhase] = useState<"enter-email" | "enter-code">(
-		"enter-email"
-	);
-	const [busy, setBusy] = useState(false);
-	const [error, setError] = useState<string | undefined>();
-
-	const sendCode = async (): Promise<void> => {
-		setBusy(true);
-		setError(undefined);
-		try {
-			await client.users.startEmailVerification(wallet, {
-				email: email.trim(),
-			});
-			setPhase("enter-code");
-		} catch (caught) {
-			setError(errorMessage(caught));
-		} finally {
-			setBusy(false);
-		}
-	};
-
-	const confirmCode = async (): Promise<void> => {
-		setBusy(true);
-		setError(undefined);
-		try {
-			await client.users.confirmEmailVerification(wallet, {
-				email: email.trim(),
-				code: code.trim(),
-			});
-			onDone();
-		} catch (caught) {
-			setError(errorMessage(caught));
-		} finally {
-			setBusy(false);
-		}
-	};
-
-	return (
-		<section className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-4">
-			<h2 className="text-sm font-medium text-front">
-				{t("onboard.emailTitle")}
-			</h2>
-			<p className="text-xs text-muted">{t("onboard.emailSubtitle")}</p>
-			<input
-				autoComplete="email"
-				className={fieldClass}
-				disabled={busy || phase === "enter-code"}
-				placeholder="you@example.com"
-				type="email"
-				value={email}
-				onChange={(event) => {
-					setEmail(event.target.value);
-				}}
-			/>
-			{phase === "enter-code" ? (
-				<>
-					<input
-						className={fieldClass}
-						disabled={busy}
-						inputMode="numeric"
-						placeholder="123456"
-						value={code}
-						onChange={(event) => {
-							setCode(event.target.value);
-						}}
-					/>
-					<p className="text-xs text-muted">{t("onboard.emailResendHint")}</p>
-				</>
-			) : null}
-			{error ? <p className="text-xs text-danger">{error}</p> : null}
-			<div className="flex items-center gap-2">
-				{phase === "enter-email" ? (
-					<button
-						className={primaryButtonClass}
-						disabled={busy || !email.trim()}
-						type="button"
-						onClick={sendCode}
-					>
-						{busy ? t("onboard.emailSending") : t("onboard.emailSendCode")}
-					</button>
-				) : (
-					<>
-						<button
-							className={primaryButtonClass}
-							disabled={busy || !code.trim()}
-							type="button"
-							onClick={confirmCode}
-						>
-							{busy ? t("onboard.emailVerifying") : t("onboard.emailVerify")}
-						</button>
-						<button
-							className={ghostButtonClass}
-							disabled={busy}
-							type="button"
-							onClick={sendCode}
-						>
-							{t("onboard.emailResend")}
-						</button>
-					</>
-				)}
-			</div>
-		</section>
-	);
-}
 
 function ProfileStep({
 	client,
@@ -517,8 +399,7 @@ export function OnboardWizard(): FunctionComponent {
 		[grant]
 	);
 	const router = useRouter();
-	const [step, setStep] = useState<StepKey>("email");
-	const [emailDone, setEmailDone] = useState(false);
+	const [step, setStep] = useState<StepKey>("profile");
 	const [profileDone, setProfileDone] = useState(false);
 	const handleDone = false;
 
@@ -553,23 +434,11 @@ export function OnboardWizard(): FunctionComponent {
 				current={step}
 				steps={STEPS}
 				done={{
-					email: emailDone,
 					handle: handleDone,
 					profile: profileDone,
 				}}
 				onSelect={setStep}
 			/>
-
-			{step === "email" ? (
-				<EmailStep
-					client={client}
-					wallet={grant.wallet}
-					onDone={() => {
-						setEmailDone(true);
-						advance("email");
-					}}
-				/>
-			) : null}
 
 			{step === "profile" ? (
 				<ProfileStep
@@ -603,7 +472,7 @@ export function OnboardWizard(): FunctionComponent {
 
 			{step === "done" ? (
 				<DoneStep
-					emailDone={emailDone}
+					emailDone={true}
 					handleDone={handleDone}
 					profileDone={profileDone}
 					onComplete={() => {
@@ -626,10 +495,6 @@ function hasProfile(user: User | null | undefined): boolean {
 	return Boolean(user?.displayName?.trim());
 }
 
-function hasVerifiedEmail(user: User | null | undefined): boolean {
-	return Boolean(user?.emailVerified);
-}
-
 function hasActiveIdentity(identities: Array<Identity> | undefined): boolean {
 	return Boolean(identities?.some((identity) => identity.status === "active"));
 }
@@ -638,9 +503,6 @@ function firstIncompleteStep({
 	activeIdentities,
 	user,
 }: Pick<WebOnboardWizardProperties, "activeIdentities" | "user">): StepKey {
-	if (!hasVerifiedEmail(user)) {
-		return "email";
-	}
 	if (!hasProfile(user)) {
 		return "profile";
 	}
@@ -667,9 +529,7 @@ export function WebOnboardWizard({
 	const [step, setStep] = useState<StepKey>(() =>
 		firstIncompleteStep({ activeIdentities, user })
 	);
-	const [emailCompleted, setEmailCompleted] = useState(false);
 	const [profileCompleted, setProfileCompleted] = useState(false);
-	const emailDone = hasVerifiedEmail(user) || emailCompleted;
 	const profileDone = hasProfile(user) || profileCompleted;
 	const handleDone = hasActiveIdentity(activeIdentities);
 
@@ -678,7 +538,6 @@ export function WebOnboardWizard({
 		const remaining = WEB_STEPS.slice(index + 1);
 		const next =
 			remaining.find((entry) => {
-				if (entry.key === "email") return !emailDone;
 				if (entry.key === "profile") return !profileDone;
 				if (entry.key === "handle") return !handleDone;
 				return true;
@@ -702,23 +561,11 @@ export function WebOnboardWizard({
 				current={step}
 				steps={WEB_STEPS}
 				done={{
-					email: emailDone,
 					handle: handleDone,
 					profile: profileDone,
 				}}
 				onSelect={setStep}
 			/>
-
-			{step === "email" ? (
-				<EmailStep
-					client={client}
-					wallet={wallet}
-					onDone={() => {
-						setEmailCompleted(true);
-						advance("email");
-					}}
-				/>
-			) : null}
 
 			{step === "profile" ? (
 				<ProfileStep
@@ -751,7 +598,7 @@ export function WebOnboardWizard({
 
 			{step === "done" ? (
 				<DoneStep
-					emailDone={emailDone}
+					emailDone={true}
 					handleDone={handleDone}
 					profileDone={profileDone}
 					onComplete={() => {

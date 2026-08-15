@@ -27,14 +27,11 @@ function isExcludedPath(pathname: string): boolean {
 	);
 }
 
-// Onboarding is only forced for the essentials: a verified email and a profile
-// display name. Claiming a @handle (an active identity) is optional, so a missing
-// username alone must NOT trigger the redirect — the handle step stays available
-// inside the wizard and on /identities for anyone who wants it.
+// Onboarding only requires a profile display name. Claiming a @handle
+// is optional and accessible on /identities.
 function setupIncomplete(user: User | null | undefined): boolean {
-	const verified = Boolean(user?.emailVerified);
 	const profiled = Boolean(user?.displayName?.trim());
-	return !verified || !profiled;
+	return !profiled;
 }
 
 async function getOptionalUser(
