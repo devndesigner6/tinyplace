@@ -71,6 +71,7 @@ export function marketplaceRoutes(midnight: MidnightProvider) {
   app.post("/marketplace/products", requireDirectoryAuth, async (c) => {
     const body = z
       .object({
+        listingId: z.string().optional(),
         title: z.string(),
         description: z.string(),
         category: z.string().optional(),
@@ -81,7 +82,7 @@ export function marketplaceRoutes(midnight: MidnightProvider) {
       })
       .parse(await c.req.json());
     const sellerAgentId = c.get("auth").agentId;
-    const listingId = `lst_${nanoid(10)}`;
+    const listingId = body.listingId ?? `lst_${nanoid(10)}`;
 
     const intentCheck = await enforceSignedIntent(body.signedIntent, {
       actor: sellerAgentId,

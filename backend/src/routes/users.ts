@@ -1,16 +1,20 @@
+import { Buffer } from "node:buffer";
+import { sha256 } from "@noble/hashes/sha2.js";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 
 import { requireDirectoryAuth } from "../auth/middleware.js";
+import { config } from "../config.js";
 import { db } from "../db/client.js";
 import { agents, handles, profiles } from "../db/schema.js";
 import { users } from "../db/social-schema.js";
 
 export const usersRoutes = new Hono();
 
-// Ephemeral verification code storage (email -> { code, expiresAt })
-const verificationCodes = new Map<string, { code: string; expiresAt: number }>();
+function hashVerificationCode(email: string, code: string): string {
+  return Buffer.from(sha256(new TextEncoder().encode(`${email.toLowerCase().trim()}:${code.trim()}`))).toString("hex");
+}
 
 function toUserResponse(
   agentId: string,
@@ -19,6 +23,10 @@ function toUserResponse(
   handle?: typeof handles.$inferSelect | null,
 ) {
   const metadata = (user?.metadata as Record<string, unknown>) ?? {};
+  // Strip internal security metadata from public response
+  const sanitizedMeta = { ...metadata };
+  delete sanitizedMeta.emailVerification;
+
   return {
     cryptoId: agentId,
     agentId,
@@ -33,7 +41,7 @@ function toUserResponse(
     username: user?.username ?? handle?.name,
     link: metadata.link as string | undefined,
     tags: (metadata.tags as Array<string>) ?? [],
-    metadata,
+    metadata: sanitizedMeta,
     createdAt: (user?.updatedAt ?? new Date()).toISOString(),
     updatedAt: (user?.updatedAt ?? new Date()).toISOString(),
   };
@@ -60,11 +68,15 @@ usersRoutes.get("/users/:agentId", async (c) => {
 
 usersRoutes.put("/users/:agentId", requireDirectoryAuth, async (c) => {
   const agentId = c.req.param("agentId");
+  const caller = c.get("auth").agentId;
+  if (caller !== agentId) {
+    return c.json({ error: "Forbidden: Cannot modify another user's profile", code: "FORBIDDEN" }, 403);
+  }
+
   const body = z
     .object({
       displayName: z.string().optional(),
       email: z.string().optional(),
-      emailVerified: z.boolean().optional(),
       username: z.string().optional(),
       metadata: z.record(z.unknown()).optional(),
     })
@@ -72,24 +84,27 @@ usersRoutes.put("/users/:agentId", requireDirectoryAuth, async (c) => {
 
   await ensureAgentRecord(agentId);
 
+  const existingUser = await db.query.users.findFirst({ where: eq(users.agentId, agentId) });
+  const currentMeta = (existingUser?.metadata as Record<string, unknown>) ?? {};
+  const newMeta = { ...currentMeta, ...(body.metadata ?? {}) };
+
   await db
     .insert(users)
     .values({
       agentId,
       displayName: body.displayName,
       email: body.email,
-      emailVerified: body.emailVerified ?? false,
+      emailVerified: existingUser?.emailVerified ?? false,
       username: body.username,
-      metadata: body.metadata ?? {},
+      metadata: newMeta,
     })
     .onConflictDoUpdate({
       target: users.agentId,
       set: {
-        displayName: body.displayName,
-        email: body.email,
-        emailVerified: body.emailVerified,
-        username: body.username,
-        metadata: body.metadata ?? {},
+        ...(body.displayName !== undefined ? { displayName: body.displayName } : {}),
+        ...(body.email !== undefined ? { email: body.email } : {}),
+        ...(body.username !== undefined ? { username: body.username } : {}),
+        metadata: newMeta,
         updatedAt: new Date(),
       },
     });
@@ -121,6 +136,11 @@ usersRoutes.put("/users/:agentId", requireDirectoryAuth, async (c) => {
 
 usersRoutes.put("/users/:agentId/profile", requireDirectoryAuth, async (c) => {
   const agentId = c.req.param("agentId");
+  const caller = c.get("auth").agentId;
+  if (caller !== agentId) {
+    return c.json({ error: "Forbidden: Cannot modify another user's profile", code: "FORBIDDEN" }, 403);
+  }
+
   const body = z
     .object({
       actorType: z.enum(["human", "agent"]).optional(),
@@ -190,6 +210,11 @@ usersRoutes.put("/users/:agentId/profile", requireDirectoryAuth, async (c) => {
 
 usersRoutes.post("/users/:agentId/email/verification", requireDirectoryAuth, async (c) => {
   const agentId = c.req.param("agentId");
+  const caller = c.get("auth").agentId;
+  if (caller !== agentId) {
+    return c.json({ error: "Forbidden: Cannot start verification for another user", code: "FORBIDDEN" }, 403);
+  }
+
   const body = z
     .object({
       email: z.string().email(),
@@ -202,10 +227,8 @@ usersRoutes.post("/users/:agentId/email/verification", requireDirectoryAuth, asy
 
   const email = body.email.toLowerCase().trim();
   const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const codeHash = hashVerificationCode(email, code);
   const expiresAt = Date.now() + 15 * 60 * 1000; // 15 minutes
-
-  verificationCodes.set(`${agentId}:${email}`, { code, expiresAt });
-  console.log(`[Auth] Email verification code for ${email} (${agentId}): ${code}`);
 
   const existingUser = await db.query.users.findFirst({ where: eq(users.agentId, agentId) });
   const currentMeta = (existingUser?.metadata as Record<string, unknown>) ?? {};
@@ -213,6 +236,13 @@ usersRoutes.post("/users/:agentId/email/verification", requireDirectoryAuth, asy
   const updatedMeta: Record<string, unknown> = {
     ...currentMeta,
     emailVerificationRequestedAt: new Date().toISOString(),
+    emailVerification: {
+      codeHash,
+      email,
+      expiresAt,
+      attempts: 0,
+      requestedAt: new Date().toISOString(),
+    },
   };
 
   await db
@@ -241,6 +271,11 @@ usersRoutes.post("/users/:agentId/email/verification", requireDirectoryAuth, asy
 
 usersRoutes.post("/users/:agentId/email/verification/confirm", requireDirectoryAuth, async (c) => {
   const agentId = c.req.param("agentId");
+  const caller = c.get("auth").agentId;
+  if (caller !== agentId) {
+    return c.json({ error: "Forbidden: Cannot confirm verification for another user", code: "FORBIDDEN" }, 403);
+  }
+
   const body = z
     .object({
       email: z.string().email(),
@@ -251,18 +286,42 @@ usersRoutes.post("/users/:agentId/email/verification/confirm", requireDirectoryA
     .parse(await c.req.json());
 
   const email = body.email.toLowerCase().trim();
-  const stored = verificationCodes.get(`${agentId}:${email}`);
+  const existingUser = await db.query.users.findFirst({ where: eq(users.agentId, agentId) });
+  const currentMeta = (existingUser?.metadata as Record<string, unknown>) ?? {};
+  const emailVerif = currentMeta.emailVerification as
+    | { codeHash: string; email: string; expiresAt: number; attempts: number }
+    | undefined;
 
-  // Accept generated code or standard test bypass code "123456" in dev
-  const isValidCode =
-    (stored && stored.code === body.code.trim() && stored.expiresAt > Date.now()) ||
-    body.code.trim() === "123456";
+  if (!emailVerif || emailVerif.email !== email || Date.now() > emailVerif.expiresAt) {
+    return c.json({ error: "Verification code expired or not requested", code: "CODE_EXPIRED" }, 400);
+  }
 
-  if (!isValidCode) {
-    return c.json({ error: "Invalid or expired verification code", code: "INVALID_CODE" }, 400);
+  if (emailVerif.attempts >= 5) {
+    return c.json({ error: "Too many failed attempts. Please request a new code.", code: "TOO_MANY_ATTEMPTS" }, 429);
+  }
+
+  const devBypassAllowed = config.NODE_ENV !== "production" && process.env.ALLOW_DEV_EMAIL_CODE === "true";
+  const expectedHash = hashVerificationCode(email, body.code);
+  const codeMatches = emailVerif.codeHash === expectedHash || (devBypassAllowed && body.code.trim() === "123456");
+
+  if (!codeMatches) {
+    // Record attempt count in database
+    const updatedMeta = {
+      ...currentMeta,
+      emailVerification: {
+        ...emailVerif,
+        attempts: emailVerif.attempts + 1,
+      },
+    };
+    await db.update(users).set({ metadata: updatedMeta }).where(eq(users.agentId, agentId));
+    return c.json({ error: "Invalid verification code", code: "INVALID_CODE" }, 400);
   }
 
   await ensureAgentRecord(agentId);
+
+  // Clear verification challenge on success
+  const updatedMeta = { ...currentMeta };
+  delete updatedMeta.emailVerification;
 
   await db
     .insert(users)
@@ -270,17 +329,17 @@ usersRoutes.post("/users/:agentId/email/verification/confirm", requireDirectoryA
       agentId,
       email,
       emailVerified: true,
+      metadata: updatedMeta,
     })
     .onConflictDoUpdate({
       target: users.agentId,
       set: {
         email,
         emailVerified: true,
+        metadata: updatedMeta,
         updatedAt: new Date(),
       },
     });
-
-  verificationCodes.delete(`${agentId}:${email}`);
 
   const user = await db.query.users.findFirst({ where: eq(users.agentId, agentId) });
   const profile = await db.query.profiles.findFirst({ where: eq(profiles.agentId, agentId) });
