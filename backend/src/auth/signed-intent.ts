@@ -1,7 +1,6 @@
 import * as ed from "@noble/ed25519";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { sha512 } from "@noble/hashes/sha512.js";
-import { eq } from "drizzle-orm";
 
 import { db } from "../db/client.js";
 import { authNonces } from "../db/schema.js";
@@ -130,7 +129,7 @@ export async function verifySignedIntent(
     };
   }
 
-  // 5. Atomic Persistent Nonce Replay Defense
+  // 5. Atomic Persistent Nonce Replay Defense via PostgreSQL ON CONFLICT DO NOTHING RETURNING
   const nonceKey = `intent:${signed.actor}:${signed.nonce}`;
   if (memoryNonceCache.has(nonceKey)) {
     return { valid: false, error: "Intent nonce has already been used (replay detected)" };
@@ -138,19 +137,72 @@ export async function verifySignedIntent(
 
   if (db) {
     try {
-      const existing = await db.query.authNonces.findFirst({
-        where: eq(authNonces.nonce, nonceKey),
-      });
-      if (existing) {
+      const inserted = await db
+        .insert(authNonces)
+        .values({ nonce: nonceKey })
+        .onConflictDoNothing()
+        .returning({ nonce: authNonces.nonce });
+
+      if (!inserted || inserted.length === 0) {
         return { valid: false, error: "Intent nonce has already been used (replay detected in DB)" };
       }
-      await db.insert(authNonces).values({ nonce: nonceKey });
-    } catch {
-      // In isolated tests where DB is absent, fallback safely to memory cache
+    } catch (err: any) {
+      if (err?.code === "23505" || err?.message?.includes("unique")) {
+        return { valid: false, error: "Intent nonce has already been used (replay conflict)" };
+      }
+      if (process.env.NODE_ENV === "production") {
+        return { valid: false, error: `Database nonce persistence failure: ${err?.message || err}` };
+      }
     }
   }
 
   memoryNonceCache.add(nonceKey);
-
   return { valid: true };
+}
+
+/**
+ * Validates signed intent against the expected endpoint mutation parameters.
+ */
+export async function enforceSignedIntent(
+  reqSignedIntent: SignedTransactionIntent | undefined,
+  expected: {
+    actor: string;
+    action: TransactionIntent["action"];
+    contractAddress?: string;
+    network?: string;
+    resourceId: string;
+    amount?: string;
+    asset?: string;
+  },
+  options: { required?: boolean } = {},
+): Promise<{ ok: boolean; error?: string; status?: number }> {
+  if (!reqSignedIntent) {
+    if (options.required ?? false) {
+      return { ok: false, error: "Cryptographically signed transaction intent is required", status: 401 };
+    }
+    return { ok: true };
+  }
+
+  if (reqSignedIntent.actor !== expected.actor) {
+    return { ok: false, error: `Intent actor mismatch: expected ${expected.actor}, got ${reqSignedIntent.actor}`, status: 403 };
+  }
+
+  if (reqSignedIntent.action !== expected.action) {
+    return { ok: false, error: `Intent action mismatch: expected ${expected.action}, got ${reqSignedIntent.action}`, status: 400 };
+  }
+
+  if (reqSignedIntent.resourceId !== expected.resourceId) {
+    return { ok: false, error: `Intent resourceId mismatch: expected ${expected.resourceId}, got ${reqSignedIntent.resourceId}`, status: 400 };
+  }
+
+  if (expected.amount && reqSignedIntent.amount && reqSignedIntent.amount !== expected.amount) {
+    return { ok: false, error: `Intent amount mismatch: expected ${expected.amount}, got ${reqSignedIntent.amount}`, status: 400 };
+  }
+
+  const result = await verifySignedIntent(reqSignedIntent);
+  if (!result.valid) {
+    return { ok: false, error: result.error ?? "Invalid signed intent", status: 403 };
+  }
+
+  return { ok: true };
 }

@@ -5,13 +5,14 @@ import { z } from "zod";
 
 import { hashCommitment } from "../auth/crypto.js";
 import { requireDirectoryAuth } from "../auth/middleware.js";
+import { enforceSignedIntent, type SignedTransactionIntent } from "../auth/signed-intent.js";
 import { db } from "../db/client.js";
 import { escrows, jobs, ledgerEntries, reputationEvents } from "../db/schema.js";
 import { createChainJob } from "../services/chain-jobs.js";
 import {
   assertParty,
-  canTransition,
   nextStatus,
+  type EscrowAction,
   type EscrowFsmStatus,
 } from "../services/escrow-state.js";
 import { storeEncryptedArtifact } from "../services/artifacts.js";
@@ -38,16 +39,12 @@ function toApiEscrow(row: typeof escrows.$inferSelect) {
     acceptedAt: row.acceptedAt?.toISOString(),
     deliveredAt: row.deliveredAt?.toISOString(),
     resolvedAt: row.resolvedAt?.toISOString(),
-    cancelledAt: row.cancelledAt?.toISOString(),
     onChainTx: row.onChainTx,
-    settlementProof: row.onChainTx
-      ? {
-          outcome: row.status,
-          trigger: "midnight_contract",
-          resolvedAt: row.resolvedAt?.toISOString() ?? row.updatedAt.toISOString(),
-          onChainTxs: [row.onChainTx],
-        }
-      : undefined,
+    contractAddress: row.contractAddress,
+    contractEscrowId: row.contractEscrowId,
+    listingVersionHash: row.listingVersionHash,
+    jobCommitment: row.jobCommitment,
+    chainAuthoritative: row.chainAuthoritative,
     midnight: {
       contractAddress: row.contractAddress,
       contractEscrowId: row.contractEscrowId,
@@ -60,30 +57,56 @@ function toApiEscrow(row: typeof escrows.$inferSelect) {
 
 async function applyEscrowTransition(
   escrowId: string,
-  action: Parameters<typeof nextStatus>[1],
-  patch: Partial<typeof escrows.$inferInsert> = {},
+  event: EscrowAction,
+  extra: Partial<typeof escrows.$inferInsert> = {},
 ) {
   const row = await db.query.escrows.findFirst({
     where: eq(escrows.escrowId, escrowId),
   });
   if (!row) throw new Error("Escrow not found");
-  const current = row.status as EscrowFsmStatus;
-  if (!canTransition(current, action)) {
-    throw new Error(`Cannot ${action} from ${current}`);
-  }
-  const status = nextStatus(current, action);
+  const from = row.status as EscrowFsmStatus;
+  const to = nextStatus(from, event);
   await db
     .update(escrows)
-    .set({ status, updatedAt: new Date(), ...patch })
+    .set({
+      status: to,
+      updatedAt: new Date(),
+      ...extra,
+    })
     .where(eq(escrows.escrowId, escrowId));
-  return status;
+  return to;
+}
+
+function orActorEscrow(actor: string, client?: string, provider?: string) {
+  if (client && provider) {
+    return or(
+      eq(escrows.client, client),
+      eq(escrows.provider, provider),
+      eq(escrows.clientCryptoId, client),
+      eq(escrows.providerCryptoId, provider),
+    );
+  }
+  return or(
+    eq(escrows.client, actor),
+    eq(escrows.provider, actor),
+    eq(escrows.clientCryptoId, actor),
+    eq(escrows.providerCryptoId, actor),
+  );
 }
 
 export function escrowRoutes(midnight: MidnightProvider) {
   const app = new Hono();
 
   app.get("/escrow", requireDirectoryAuth, async (c) => {
-    const actor = c.req.query("client") ?? c.req.query("provider") ?? c.get("auth").agentId;
+    const actor = c.get("auth").agentId;
+    const rows = await db.query.escrows.findMany({
+      where: orActorEscrow(actor, c.req.query("client"), c.req.query("provider")),
+    });
+    return c.json({ escrows: rows.map(toApiEscrow) });
+  });
+
+  app.get("/escrow/active", requireDirectoryAuth, async (c) => {
+    const actor = c.get("auth").agentId;
     const rows = await db
       .select()
       .from(escrows)
@@ -116,10 +139,25 @@ export function escrowRoutes(midnight: MidnightProvider) {
         jobId: z.string().optional(),
         listingVersionHash: z.string().optional(),
         jobCommitment: z.string().optional(),
+        signedIntent: z.custom<SignedTransactionIntent>().optional(),
       })
       .parse(await c.req.json());
 
     const escrowId = body.escrowId ?? `esc_${nanoid(12)}`;
+
+    if (body.signedIntent) {
+      const intentCheck = await enforceSignedIntent(body.signedIntent, {
+        actor: c.get("auth").agentId,
+        action: "create_escrow",
+        resourceId: escrowId,
+        amount: body.amount,
+        asset: body.asset,
+      });
+      if (!intentCheck.ok) {
+        return c.json({ error: intentCheck.error, code: "INVALID_SIGNED_INTENT" }, (intentCheck.status as any) ?? 403);
+      }
+    }
+
     await db.insert(escrows).values({
       escrowId,
       jobId: body.jobId,
@@ -173,13 +211,30 @@ export function escrowRoutes(midnight: MidnightProvider) {
   app.post("/escrow/:escrowId/fund", requireDirectoryAuth, async (c) => {
     const escrowId = c.req.param("escrowId");
     const body = z
-      .object({ midnightTxHash: z.string(), idempotencyKey: z.string().optional() })
+      .object({
+        midnightTxHash: z.string(),
+        idempotencyKey: z.string().optional(),
+        signedIntent: z.custom<SignedTransactionIntent>().optional(),
+      })
       .parse(await c.req.json());
     const row = await db.query.escrows.findFirst({
       where: eq(escrows.escrowId, escrowId),
     });
     if (!row) return c.json({ error: "Escrow not found" }, 404);
     assertParty("client", c.get("auth").agentId, row.client, row.provider);
+
+    if (body.signedIntent) {
+      const intentCheck = await enforceSignedIntent(body.signedIntent, {
+        actor: c.get("auth").agentId,
+        action: "fund_escrow",
+        resourceId: escrowId,
+        amount: row.amount,
+        asset: row.asset,
+      });
+      if (!intentCheck.ok) {
+        return c.json({ error: intentCheck.error, code: "INVALID_SIGNED_INTENT" }, (intentCheck.status as any) ?? 403);
+      }
+    }
 
     const chainJob = await createChainJob(
       {
@@ -256,6 +311,7 @@ export function escrowRoutes(midnight: MidnightProvider) {
         refs: z.array(z.string()).optional(),
         outputCiphertextBase64: z.string().optional(),
         outputHash: z.string().optional(),
+        signedIntent: z.custom<SignedTransactionIntent>().optional(),
       })
       .parse(await c.req.json());
     const row = await db.query.escrows.findFirst({
@@ -263,6 +319,17 @@ export function escrowRoutes(midnight: MidnightProvider) {
     });
     if (!row) return c.json({ error: "Escrow not found" }, 404);
     assertParty("provider", c.get("auth").agentId, row.client, row.provider);
+
+    if (body.signedIntent) {
+      const intentCheck = await enforceSignedIntent(body.signedIntent, {
+        actor: c.get("auth").agentId,
+        action: "deliver_escrow",
+        resourceId: escrowId,
+      });
+      if (!intentCheck.ok) {
+        return c.json({ error: intentCheck.error, code: "INVALID_SIGNED_INTENT" }, (intentCheck.status as any) ?? 403);
+      }
+    }
 
     let outputHash = body.outputHash;
     if (body.outputCiphertextBase64) {
@@ -304,6 +371,15 @@ export function escrowRoutes(midnight: MidnightProvider) {
       chainJobId: chainJob.jobId,
     };
     const deliveries = [...(row.deliveries ?? []), delivery];
+
+    if (chainJob.status !== "finalized") {
+      await db
+        .update(escrows)
+        .set({ deliveries, updatedAt: new Date() })
+        .where(eq(escrows.escrowId, escrowId));
+      return c.json({ ...toApiEscrow(row), chainJob, outputHash, status: "submitted" }, 202);
+    }
+
     await applyEscrowTransition(escrowId, "deliver", {
       deliveries,
       deliveredAt: new Date(),
@@ -329,12 +405,28 @@ export function escrowRoutes(midnight: MidnightProvider) {
 
   app.post("/escrow/:escrowId/accept-delivery", requireDirectoryAuth, async (c) => {
     const escrowId = c.req.param("escrowId");
+    const body = z
+      .object({
+        signedIntent: z.custom<SignedTransactionIntent>().optional(),
+      })
+      .catchall(z.any())
+      .parse(await c.req.json().catch(() => ({})));
     const row = await db.query.escrows.findFirst({
       where: eq(escrows.escrowId, escrowId),
     });
     if (!row) return c.json({ error: "Escrow not found" }, 404);
     assertParty("client", c.get("auth").agentId, row.client, row.provider);
-    await applyEscrowTransition(escrowId, "accept_delivery");
+
+    if (body.signedIntent) {
+      const intentCheck = await enforceSignedIntent(body.signedIntent, {
+        actor: c.get("auth").agentId,
+        action: "accept_delivery",
+        resourceId: escrowId,
+      });
+      if (!intentCheck.ok) {
+        return c.json({ error: intentCheck.error, code: "INVALID_SIGNED_INTENT" }, (intentCheck.status as any) ?? 403);
+      }
+    }
 
     const releaseJob = await createChainJob(
       {
@@ -356,6 +448,7 @@ export function escrowRoutes(midnight: MidnightProvider) {
       return c.json({ ...toApiEscrow(row), chainJob: releaseJob, status: "submitted" }, 202);
     }
 
+    await applyEscrowTransition(escrowId, "accept_delivery");
     await applyEscrowTransition(escrowId, "release", {
       resolvedAt: new Date(),
       onChainTx: releaseJob.txHash,
@@ -399,7 +492,12 @@ export function escrowRoutes(midnight: MidnightProvider) {
 
   app.post("/escrow/:escrowId/dispute", requireDirectoryAuth, async (c) => {
     const escrowId = c.req.param("escrowId");
-    const body = z.object({ reason: z.string() }).parse(await c.req.json());
+    const body = z
+      .object({
+        reason: z.string(),
+        signedIntent: z.custom<SignedTransactionIntent>().optional(),
+      })
+      .parse(await c.req.json());
     const row = await db.query.escrows.findFirst({
       where: eq(escrows.escrowId, escrowId),
     });
@@ -408,6 +506,18 @@ export function escrowRoutes(midnight: MidnightProvider) {
     if (actor !== row.client && actor !== row.provider) {
       return c.json({ error: "Forbidden" }, 403);
     }
+
+    if (body.signedIntent) {
+      const intentCheck = await enforceSignedIntent(body.signedIntent, {
+        actor,
+        action: "dispute_escrow",
+        resourceId: escrowId,
+      });
+      if (!intentCheck.ok) {
+        return c.json({ error: intentCheck.error, code: "INVALID_SIGNED_INTENT" }, (intentCheck.status as any) ?? 403);
+      }
+    }
+
     const disputeJob = await createChainJob(
       {
         kind: "escrow_dispute",
@@ -419,6 +529,7 @@ export function escrowRoutes(midnight: MidnightProvider) {
       },
       midnight,
     );
+
     await applyEscrowTransition(escrowId, "dispute", {
       dispute: {
         disputeId: nanoid(),
@@ -438,11 +549,28 @@ export function escrowRoutes(midnight: MidnightProvider) {
 
   app.post("/escrow/:escrowId/refund", requireDirectoryAuth, async (c) => {
     const escrowId = c.req.param("escrowId");
+    const body = z
+      .object({
+        signedIntent: z.custom<SignedTransactionIntent>().optional(),
+      })
+      .catchall(z.any())
+      .parse(await c.req.json().catch(() => ({})));
     const row = await db.query.escrows.findFirst({
       where: eq(escrows.escrowId, escrowId),
     });
     if (!row) return c.json({ error: "Escrow not found" }, 404);
     assertParty("client", c.get("auth").agentId, row.client, row.provider);
+
+    if (body.signedIntent) {
+      const intentCheck = await enforceSignedIntent(body.signedIntent, {
+        actor: c.get("auth").agentId,
+        action: "refund_escrow",
+        resourceId: escrowId,
+      });
+      if (!intentCheck.ok) {
+        return c.json({ error: intentCheck.error, code: "INVALID_SIGNED_INTENT" }, (intentCheck.status as any) ?? 403);
+      }
+    }
 
     // Verify refund eligibility: disputed OR past deadline
     const deadlineMs = row.terms && typeof row.terms === "object" && "deadline" in row.terms
@@ -471,7 +599,6 @@ export function escrowRoutes(midnight: MidnightProvider) {
           escrowId,
           callerCommitment: row.clientCryptoId ?? row.client,
           buyerCommitment: row.clientCryptoId ?? row.client,
-          currentTime: Math.floor(Date.now() / 1000),
         },
         idempotencyKey: `escrow_refund:${escrowId}`,
       },
@@ -501,14 +628,4 @@ export function escrowRoutes(midnight: MidnightProvider) {
   });
 
   return app;
-}
-
-function orActorEscrow(
-  actor: string,
-  client?: string | null,
-  provider?: string | null,
-) {
-  if (client) return eq(escrows.client, client);
-  if (provider) return eq(escrows.provider, provider);
-  return or(eq(escrows.client, actor), eq(escrows.provider, actor));
 }

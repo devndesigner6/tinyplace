@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { hashCommitment } from "../auth/crypto.js";
 import { requireDirectoryAuth } from "../auth/middleware.js";
+import { enforceSignedIntent, type SignedTransactionIntent } from "../auth/signed-intent.js";
 import { db } from "../db/client.js";
 import {
   jobs,
@@ -76,10 +77,24 @@ export function marketplaceRoutes(midnight: MidnightProvider) {
         priceAmount: z.string(),
         priceAsset: z.string().default("NIGHT"),
         priceNetwork: z.string().default("midnight:preprod"),
+        signedIntent: z.custom<SignedTransactionIntent>().optional(),
       })
       .parse(await c.req.json());
     const sellerAgentId = c.get("auth").agentId;
     const listingId = `lst_${nanoid(10)}`;
+
+    if (body.signedIntent) {
+      const intentCheck = await enforceSignedIntent(body.signedIntent, {
+        actor: sellerAgentId,
+        action: "anchor_listing",
+        resourceId: listingId,
+        amount: body.priceAmount,
+        asset: body.priceAsset,
+      });
+      if (!intentCheck.ok) {
+        return c.json({ error: intentCheck.error, code: "INVALID_SIGNED_INTENT" }, (intentCheck.status as any) ?? 403);
+      }
+    }
     await db.insert(listings).values({
       id: listingId,
       sellerAgentId,

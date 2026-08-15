@@ -1,5 +1,6 @@
 import { Buffer } from "node:buffer";
 import { describe, expect, it } from "vitest";
+import { nanoid } from "nanoid";
 import * as ed from "@noble/ed25519";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { sha512 } from "@noble/hashes/sha512.js";
@@ -327,7 +328,7 @@ describe("Midnight Compact Contract Security & Circuit Authorization", () => {
 describe("Signed Transaction Intent Verification", () => {
   it("verifies a valid Ed25519 signed transaction intent", async () => {
     const privKey = ed.utils.randomPrivateKey();
-    const pubKey = ed.getPublicKey(privKey);
+    const pubKey = await ed.getPublicKey(privKey);
     const pubKeyBase64Str = Buffer.from(pubKey).toString("base64");
 
     const intent: TransactionIntent = {
@@ -338,12 +339,12 @@ describe("Signed Transaction Intent Verification", () => {
       resourceId: "esc_test_123",
       amount: "100",
       asset: "NIGHT",
-      nonce: "nonce_unique_1",
+      nonce: `nonce_valid_${nanoid()}`,
       expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
     };
 
     const intentHash = serializeIntentForSigning(intent);
-    const sig = ed.sign(intentHash, privKey);
+    const sig = await ed.sign(intentHash, privKey);
     const signatureHexStr = Buffer.from(sig).toString("hex");
 
     const signedIntent: SignedTransactionIntent = {
@@ -353,6 +354,9 @@ describe("Signed Transaction Intent Verification", () => {
     };
 
     const res = await verifySignedIntent(signedIntent);
+    if (!res.valid) {
+      console.error("DEBUG TEST 1 RES:", res);
+    }
     expect(res.valid).toBe(true);
   });
 
@@ -363,24 +367,25 @@ describe("Signed Transaction Intent Verification", () => {
       contractAddress: "contract_addr",
       network: "midnight:preprod",
       resourceId: "esc_no_sig",
-      nonce: "nonce_no_sig_1",
+      nonce: `nonce_nosig_${nanoid()}`,
       expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
     };
 
     const noSigIntent = { ...intent, signatureHex: "", publicKeyBase64: "pk" } as SignedTransactionIntent;
-    const resNoSig = await verifySignedIntent(noSigIntent);
-    expect(resNoSig.valid).toBe(false);
-    expect(resNoSig.error).toContain("signature is mandatory");
-
     const noPkIntent = { ...intent, signatureHex: "sig", publicKeyBase64: "" } as SignedTransactionIntent;
-    const resNoPk = await verifySignedIntent(noPkIntent);
-    expect(resNoPk.valid).toBe(false);
-    expect(resNoPk.error).toContain("Public key is mandatory");
+
+    const res1 = await verifySignedIntent(noSigIntent);
+    expect(res1.valid).toBe(false);
+    expect(res1.error).toContain("Cryptographic signature is mandatory");
+
+    const res2 = await verifySignedIntent(noPkIntent);
+    expect(res2.valid).toBe(false);
+    expect(res2.error).toContain("Public key is mandatory");
   });
 
   it("strictly rejects actor mismatch when actor does not match public key", async () => {
     const privKey = ed.utils.randomPrivateKey();
-    const pubKey = ed.getPublicKey(privKey);
+    const pubKey = await ed.getPublicKey(privKey);
     const pubKeyBase64Str = Buffer.from(pubKey).toString("base64");
 
     const intent: TransactionIntent = {
@@ -389,12 +394,12 @@ describe("Signed Transaction Intent Verification", () => {
       contractAddress: "contract_addr",
       network: "midnight:preprod",
       resourceId: "esc_mismatch",
-      nonce: "nonce_mismatch_1",
+      nonce: `nonce_mismatch_${nanoid()}`,
       expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
     };
 
     const intentHash = serializeIntentForSigning(intent);
-    const sig = ed.sign(intentHash, privKey);
+    const sig = await ed.sign(intentHash, privKey);
 
     const signedIntent: SignedTransactionIntent = {
       ...intent,
@@ -409,7 +414,7 @@ describe("Signed Transaction Intent Verification", () => {
 
   it("rejects replayed nonce", async () => {
     const privKey = ed.utils.randomPrivateKey();
-    const pubKey = ed.getPublicKey(privKey);
+    const pubKey = await ed.getPublicKey(privKey);
     const pubKeyBase64Str = Buffer.from(pubKey).toString("base64");
 
     const intent: TransactionIntent = {
@@ -418,12 +423,12 @@ describe("Signed Transaction Intent Verification", () => {
       contractAddress: "contract_addr",
       network: "midnight:preprod",
       resourceId: "esc_replay",
-      nonce: "nonce_replayed_key_sec",
+      nonce: `nonce_replayed_${nanoid()}`,
       expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
     };
 
     const intentHash = serializeIntentForSigning(intent);
-    const sig = ed.sign(intentHash, privKey);
+    const sig = await ed.sign(intentHash, privKey);
 
     const signed1: SignedTransactionIntent = {
       ...intent,
@@ -445,7 +450,7 @@ describe("Signed Transaction Intent Verification", () => {
 
   it("rejects expired intent", async () => {
     const privKey = ed.utils.randomPrivateKey();
-    const pubKey = ed.getPublicKey(privKey);
+    const pubKey = await ed.getPublicKey(privKey);
     const pubKeyBase64Str = Buffer.from(pubKey).toString("base64");
 
     const intent: SignedTransactionIntent = {

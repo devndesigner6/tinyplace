@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { hashCommitment, isReservedHandle, isValidHandleLabel, normalizeHandle } from "../auth/crypto.js";
 import { requireDirectoryAuth } from "../auth/middleware.js";
+import { enforceSignedIntent, type SignedTransactionIntent } from "../auth/signed-intent.js";
 import { db } from "../db/client.js";
 import { agents, handles, profiles } from "../db/schema.js";
 import { createChainJob } from "../services/chain-jobs.js";
@@ -21,6 +22,7 @@ const registerSchema = z.object({
   primary: z.boolean().optional(),
   midnightAddress: z.string().optional(),
   midnightTxHash: z.string().optional(),
+  signedIntent: z.custom<SignedTransactionIntent>().optional(),
 });
 
 export function registryRoutes(midnight: MidnightProvider) {
@@ -74,6 +76,16 @@ export function registryRoutes(midnight: MidnightProvider) {
     }
 
     const agentId = body.cryptoId;
+    if (body.signedIntent) {
+      const intentCheck = await enforceSignedIntent(body.signedIntent, {
+        actor: c.get("auth").agentId,
+        action: "claim_handle",
+        resourceId: name,
+      });
+      if (!intentCheck.ok) {
+        return c.json({ error: intentCheck.error, code: "INVALID_SIGNED_INTENT" }, (intentCheck.status as any) ?? 403);
+      }
+    }
     await db
       .insert(agents)
       .values({

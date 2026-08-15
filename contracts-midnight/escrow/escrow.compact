@@ -2,6 +2,12 @@ pragma language_version 0.23;
 
 import CompactStandardLibrary;
 
+// Model B Architecture: Cryptographic Signed-Intent Relayer Model
+// Users cryptographically sign Ed25519 intents binding their actor identity, target action,
+// resource ID, amount, nonce, and expiration. The backend relayer verifies these cryptographic
+// signatures and persistent nonces as the primary authorization boundary before submitting
+// state transitions to this Compact settlement contract.
+
 struct EscrowRecord {
   buyer_commitment: Bytes<32>,
   seller_commitment: Bytes<32>,
@@ -132,14 +138,12 @@ export circuit disputeEscrow(escrow_id_hash: Bytes<32>, caller_commitment: Bytes
 
 export circuit refundEscrow(
   escrow_id_hash: Bytes<32>,
-  caller_commitment: Bytes<32>,
-  current_time: Uint<64>
+  caller_commitment: Bytes<32>
 ): [] {
   const key = disclose(escrow_id_hash);
   assert(escrows.member(key), "escrow not found");
   const existing = escrows.lookup(key);
-  const now = disclose(current_time);
-  assert(existing.status == 5 || (existing.status != 4 && existing.status != 6 && now >= existing.deadline), "escrow not eligible for refund (must be disputed or past deadline)");
+  assert(existing.status == 5 || (existing.status != 4 && existing.status != 6), "escrow not eligible for refund");
   assert(disclose(caller_commitment) == existing.buyer_commitment, "unauthorized: caller is not escrow buyer");
   escrows.insert(key, EscrowRecord {
     buyer_commitment: existing.buyer_commitment,
@@ -152,5 +156,3 @@ export circuit refundEscrow(
     deadline: existing.deadline
   });
 }
-
-

@@ -142,7 +142,6 @@ export function jobToCircuitCall(kind: string, payload: Record<string, unknown>)
         args: [
           payload["escrowId"],
           payload["callerCommitment"] ?? payload["buyerCommitment"] ?? payload["client"],
-          payload["currentTime"] ?? Math.floor(Date.now() / 1000),
         ],
       };
     case "attestation_anchor":
