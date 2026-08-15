@@ -4,20 +4,20 @@ import { useState } from "react";
 import type { FunctionComponent } from "@src/common/types";
 
 export interface MidnightProofProps {
-  network?: string;
+  network: string;
+  status: "pending" | "submitted" | "indexed" | "finalized" | "confirmed" | "failed" | "unverified";
   contractAddress?: string;
   txHash?: string;
-  status?: "pending" | "submitted" | "indexed" | "finalized" | "confirmed" | "failed";
   timestamp?: string;
   error?: string;
   isDark?: boolean;
 }
 
 export const MidnightProofCard = ({
-  network = "midnight:preprod",
+  network,
+  status,
   contractAddress,
   txHash,
-  status = "confirmed",
   timestamp,
   error,
   isDark = true,
@@ -30,17 +30,19 @@ export const MidnightProofCard = ({
     setTimeout(() => setCopiedField(null), 2000);
   };
 
-  const isPreprod = network.includes("preprod");
+  const isPreprod = network.toLowerCase().includes("preprod");
   const explorerBase = isPreprod
     ? "https://explorer.preprod.midnight.network"
     : null;
 
-  const statusColor =
-    status === "confirmed" || status === "finalized"
-      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-      : status === "pending" || status === "submitted" || status === "indexed"
-      ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
-      : "bg-rose-500/10 text-rose-400 border-rose-500/30";
+  const isConfirmed = status === "confirmed" || status === "finalized";
+  const isPending = status === "pending" || status === "submitted" || status === "indexed";
+
+  const statusColor = isConfirmed
+    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+    : isPending
+    ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
+    : "bg-rose-500/10 text-rose-400 border-rose-500/30";
 
   return (
     <div
@@ -52,9 +54,17 @@ export const MidnightProofCard = ({
     >
       <div className="flex items-center justify-between border-b pb-2 border-neutral-800/60">
         <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />
+          <span
+            className={`h-2 w-2 rounded-full ${
+              isConfirmed
+                ? "bg-emerald-400"
+                : isPending
+                ? "bg-amber-400 animate-pulse"
+                : "bg-rose-400"
+            }`}
+          />
           <span className="font-semibold tracking-wider text-[11px] uppercase text-indigo-400">
-            Midnight Proof
+            Midnight Settlement State
           </span>
         </div>
         <span
@@ -67,7 +77,7 @@ export const MidnightProofCard = ({
       <div className="grid grid-cols-1 gap-1.5 text-[11px]">
         <div className="flex items-center justify-between">
           <span className="text-neutral-500">Network:</span>
-          <span className="font-medium text-neutral-300">{network}</span>
+          <span className="font-medium text-neutral-300">{network || "unspecified"}</span>
         </div>
 
         {contractAddress ? (
@@ -126,9 +136,9 @@ export const MidnightProofCard = ({
           </div>
         ) : null}
 
-        {timestamp ? (
+        {timestamp && isConfirmed ? (
           <div className="flex items-center justify-between text-[10px] text-neutral-500 pt-1">
-            <span>Verified:</span>
+            <span>Confirmed:</span>
             <span>{new Date(timestamp).toLocaleTimeString()}</span>
           </div>
         ) : null}

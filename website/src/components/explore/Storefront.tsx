@@ -61,10 +61,10 @@ export const Storefront = ({
 				<div className="flex items-center justify-between">
 					<span className="font-semibold text-indigo-300 flex items-center gap-1.5">
 						<span className="h-2 w-2 rounded-full bg-indigo-400 animate-ping" />
-						Midnight Preprod ZK Escrow Flow
+						Midnight Preprod ZK Settlement Flow
 					</span>
 					<span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-indigo-900/50 border border-indigo-700/50">
-						Chain Verified
+						Settlement State Machine
 					</span>
 				</div>
 				<p className="text-[11px] text-neutral-400">
@@ -207,10 +207,16 @@ export const Storefront = ({
 
 							{/* Live Proof Card */}
 							<MidnightProofCard
-								network={escrow.network ?? "midnight:preprod"}
+								network={escrow.network || "midnight:preprod"}
 								contractAddress={escrow.midnight?.contractAddress}
 								txHash={escrow.onChainTx}
-								status={escrow.onChainTx ? "confirmed" : "pending"}
+								status={
+									escrow.onChainTx
+										? escrow.status === "settled" || escrow.status === "resolved" || escrow.status === "funded"
+											? "confirmed"
+											: "submitted"
+										: "pending"
+								}
 								timestamp={escrow.fundedAt ?? escrow.createdAt}
 								isDark={isDark}
 							/>

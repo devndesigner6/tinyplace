@@ -432,6 +432,66 @@ export function escrowRoutes(midnight: MidnightProvider) {
     return c.json(toApiEscrow(updated!));
   });
 
+  app.post("/escrow/:escrowId/refund", requireDirectoryAuth, async (c) => {
+    const escrowId = c.req.param("escrowId");
+    const row = await db.query.escrows.findFirst({
+      where: eq(escrows.escrowId, escrowId),
+    });
+    if (!row) return c.json({ error: "Escrow not found" }, 404);
+    assertParty("client", c.get("auth").agentId, row.client, row.provider);
+
+    // Verify refund eligibility: disputed OR past deadline
+    const deadlineMs = row.terms && typeof row.terms === "object" && "deadline" in row.terms
+      ? new Date((row.terms as { deadline: string }).deadline).getTime()
+      : 0;
+    const isDisputed = row.status === "disputed";
+    const isExpired = deadlineMs > 0 && Date.now() >= deadlineMs;
+
+    if (!isDisputed && !isExpired) {
+      return c.json(
+        {
+          error: "Escrow is not eligible for refund (must be disputed or past deadline)",
+          code: "NOT_REFUNDABLE",
+        },
+        400,
+      );
+    }
+
+    const refundJob = await createChainJob(
+      {
+        kind: "escrow_refund",
+        agentId: row.client,
+        resourceType: "escrow",
+        resourceId: escrowId,
+        payload: {
+          escrowId,
+          callerCommitment: row.clientCryptoId ?? row.client,
+          buyerCommitment: row.clientCryptoId ?? row.client,
+          currentTime: Math.floor(Date.now() / 1000),
+        },
+        idempotencyKey: `escrow_refund:${escrowId}`,
+      },
+      midnight,
+    );
+
+    await applyEscrowTransition(escrowId, "refund", {
+      resolvedAt: new Date(),
+      onChainTx: refundJob.status === "finalized" ? refundJob.txHash : row.onChainTx,
+    });
+
+    if (row.jobId) {
+      await db
+        .update(jobs)
+        .set({ status: "cancelled", updatedAt: new Date() })
+        .where(eq(jobs.id, row.jobId));
+    }
+
+    const updated = await db.query.escrows.findFirst({
+      where: eq(escrows.escrowId, escrowId),
+    });
+    return c.json({ ...toApiEscrow(updated!), chainJob: refundJob });
+  });
+
   return app;
 }
 

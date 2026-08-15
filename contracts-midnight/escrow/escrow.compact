@@ -130,11 +130,16 @@ export circuit disputeEscrow(escrow_id_hash: Bytes<32>, caller_commitment: Bytes
   });
 }
 
-export circuit refundEscrow(escrow_id_hash: Bytes<32>, caller_commitment: Bytes<32>): [] {
+export circuit refundEscrow(
+  escrow_id_hash: Bytes<32>,
+  caller_commitment: Bytes<32>,
+  current_time: Uint<64>
+): [] {
   const key = disclose(escrow_id_hash);
   assert(escrows.member(key), "escrow not found");
   const existing = escrows.lookup(key);
-  assert(existing.status == 5, "escrow status must be disputed");
+  const now = disclose(current_time);
+  assert(existing.status == 5 || (existing.status != 4 && existing.status != 6 && now >= existing.deadline), "escrow not eligible for refund (must be disputed or past deadline)");
   assert(disclose(caller_commitment) == existing.buyer_commitment, "unauthorized: caller is not escrow buyer");
   escrows.insert(key, EscrowRecord {
     buyer_commitment: existing.buyer_commitment,
@@ -147,4 +152,5 @@ export circuit refundEscrow(escrow_id_hash: Bytes<32>, caller_commitment: Bytes<
     deadline: existing.deadline
   });
 }
+
 

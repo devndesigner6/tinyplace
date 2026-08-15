@@ -13,10 +13,9 @@ import {
   type TransactionIntent,
 } from "../src/auth/signed-intent.js";
 import { config } from "../src/config.js";
-import { canTransition, nextStatus } from "../src/services/escrow-state.js";
 
 // Simulated in-memory representation of Compact contract circuit state machines
-// to verify all authorization and transition rules under the exact logic of our Compact sources.
+// to verify all authorization, deadline, and transition rules under the exact logic of our Compact sources.
 
 class MockHandleRegistry {
   handles = new Map<
@@ -149,10 +148,14 @@ class MockEscrowContract {
     existing.status = 5;
   }
 
-  refundEscrow(escrowId: string, callerCommitment: string) {
+  refundEscrow(escrowId: string, callerCommitment: string, currentTime: bigint) {
     const existing = this.escrows.get(escrowId);
     if (!existing) throw new Error("escrow not found");
-    if (existing.status !== 5) throw new Error("escrow status must be disputed");
+    const isDisputed = existing.status === 5;
+    const isExpired = existing.status !== 4 && existing.status !== 6 && currentTime >= existing.deadline;
+    if (!isDisputed && !isExpired) {
+      throw new Error("escrow not eligible for refund (must be disputed or past deadline)");
+    }
     if (callerCommitment !== existing.buyerCommitment) {
       throw new Error("unauthorized: caller is not escrow buyer");
     }
@@ -276,11 +279,27 @@ describe("Midnight Compact Contract Security & Circuit Authorization", () => {
       expect(contract.escrows.get("esc_5")?.status).toBe(5);
 
       // Only buyer can refund disputed escrow
-      expect(() => contract.refundEscrow("esc_5", "seller_bob")).toThrow(
+      expect(() => contract.refundEscrow("esc_5", "seller_bob", 1000n)).toThrow(
         "unauthorized: caller is not escrow buyer",
       );
-      contract.refundEscrow("esc_5", "buyer_alice");
+      contract.refundEscrow("esc_5", "buyer_alice", 1000n);
       expect(contract.escrows.get("esc_5")?.status).toBe(6);
+    });
+
+    it("allows refund when past deadline even if not disputed", () => {
+      const contract = new MockEscrowContract();
+      const deadline = 5000n;
+      contract.createEscrow("esc_deadline", "buyer_alice", "seller_bob", 500n, "NIGHT", deadline);
+      contract.fundEscrow("esc_deadline", "buyer_alice");
+
+      // Before deadline: refund rejected
+      expect(() => contract.refundEscrow("esc_deadline", "buyer_alice", 4000n)).toThrow(
+        "escrow not eligible for refund",
+      );
+
+      // At or after deadline: refund allowed for buyer
+      contract.refundEscrow("esc_deadline", "buyer_alice", 5000n);
+      expect(contract.escrows.get("esc_deadline")?.status).toBe(6);
     });
 
     it("rejects invalid state transitions (e.g. deliver before funding, double release)", () => {
@@ -337,37 +356,108 @@ describe("Signed Transaction Intent Verification", () => {
     expect(res.valid).toBe(true);
   });
 
-  it("rejects replayed nonce", async () => {
+  it("strictly rejects missing signature or missing public key", async () => {
     const intent: TransactionIntent = {
-      actor: "actor_replay_test",
+      actor: "actor_no_sig",
+      action: "release_escrow",
+      contractAddress: "contract_addr",
+      network: "midnight:preprod",
+      resourceId: "esc_no_sig",
+      nonce: "nonce_no_sig_1",
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+    };
+
+    const noSigIntent = { ...intent, signatureHex: "", publicKeyBase64: "pk" } as SignedTransactionIntent;
+    const resNoSig = await verifySignedIntent(noSigIntent);
+    expect(resNoSig.valid).toBe(false);
+    expect(resNoSig.error).toContain("signature is mandatory");
+
+    const noPkIntent = { ...intent, signatureHex: "sig", publicKeyBase64: "" } as SignedTransactionIntent;
+    const resNoPk = await verifySignedIntent(noPkIntent);
+    expect(resNoPk.valid).toBe(false);
+    expect(resNoPk.error).toContain("Public key is mandatory");
+  });
+
+  it("strictly rejects actor mismatch when actor does not match public key", async () => {
+    const privKey = ed.utils.randomPrivateKey();
+    const pubKey = ed.getPublicKey(privKey);
+    const pubKeyBase64Str = Buffer.from(pubKey).toString("base64");
+
+    const intent: TransactionIntent = {
+      actor: "impersonated_actor_123",
+      action: "release_escrow",
+      contractAddress: "contract_addr",
+      network: "midnight:preprod",
+      resourceId: "esc_mismatch",
+      nonce: "nonce_mismatch_1",
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+    };
+
+    const intentHash = serializeIntentForSigning(intent);
+    const sig = ed.sign(intentHash, privKey);
+
+    const signedIntent: SignedTransactionIntent = {
+      ...intent,
+      signatureHex: Buffer.from(sig).toString("hex"),
+      publicKeyBase64: pubKeyBase64Str,
+    };
+
+    const res = await verifySignedIntent(signedIntent);
+    expect(res.valid).toBe(false);
+    expect(res.error).toContain("Actor mismatch");
+  });
+
+  it("rejects replayed nonce", async () => {
+    const privKey = ed.utils.randomPrivateKey();
+    const pubKey = ed.getPublicKey(privKey);
+    const pubKeyBase64Str = Buffer.from(pubKey).toString("base64");
+
+    const intent: TransactionIntent = {
+      actor: pubKeyBase64Str,
       action: "release_escrow",
       contractAddress: "contract_addr",
       network: "midnight:preprod",
       resourceId: "esc_replay",
-      nonce: "nonce_replayed_key",
+      nonce: "nonce_replayed_key_sec",
       expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
     };
 
-    const signed1: SignedTransactionIntent = { ...intent, signatureHex: "" };
+    const intentHash = serializeIntentForSigning(intent);
+    const sig = ed.sign(intentHash, privKey);
+
+    const signed1: SignedTransactionIntent = {
+      ...intent,
+      signatureHex: Buffer.from(sig).toString("hex"),
+      publicKeyBase64: pubKeyBase64Str,
+    };
     const res1 = await verifySignedIntent(signed1);
     expect(res1.valid).toBe(true);
 
-    const signed2: SignedTransactionIntent = { ...intent, signatureHex: "" };
+    const signed2: SignedTransactionIntent = {
+      ...intent,
+      signatureHex: Buffer.from(sig).toString("hex"),
+      publicKeyBase64: pubKeyBase64Str,
+    };
     const res2 = await verifySignedIntent(signed2);
     expect(res2.valid).toBe(false);
     expect(res2.error).toContain("replay detected");
   });
 
   it("rejects expired intent", async () => {
+    const privKey = ed.utils.randomPrivateKey();
+    const pubKey = ed.getPublicKey(privKey);
+    const pubKeyBase64Str = Buffer.from(pubKey).toString("base64");
+
     const intent: SignedTransactionIntent = {
-      actor: "actor_expired",
+      actor: pubKeyBase64Str,
       action: "claim_handle",
       contractAddress: "contract_addr",
       network: "midnight:preprod",
       resourceId: "handle_expired",
       nonce: "nonce_expired_1",
       expiresAt: new Date(Date.now() - 120 * 1000).toISOString(),
-      signatureHex: "",
+      signatureHex: "abcd1234",
+      publicKeyBase64: pubKeyBase64Str,
     };
 
     const res = await verifySignedIntent(intent);

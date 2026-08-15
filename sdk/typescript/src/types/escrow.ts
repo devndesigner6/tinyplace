@@ -153,10 +153,16 @@ export interface Escrow {
   onChainTx?: string;
   ledgerTxId?: string;
   releaseLedgerTxId?: string;
-  settlementProof?: EscrowSettlementProof;
   jobId?: string;
   listingVersionHash?: string;
   jobCommitment?: string;
+  midnight?: {
+    contractAddress?: string;
+    contractEscrowId?: string;
+    listingVersionHash?: string;
+    jobCommitment?: string;
+    chainAuthoritative?: boolean;
+  };
 }
 
 export interface EscrowCreateRequest {
