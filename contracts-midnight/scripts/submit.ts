@@ -4,7 +4,7 @@ type RetryOptions = {
 };
 
 function errorText(error: unknown): string {
-  const messages: string[] = [];
+  const messages: string[] = [String(error)];
   let current: unknown = error;
 
   for (let depth = 0; depth < 4 && current && typeof current === "object"; depth += 1) {

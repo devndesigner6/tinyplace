@@ -16,6 +16,22 @@ test("retries a transient Midnight WebSocket closure", async () => {
   assert.equal(attempts, 3);
 });
 
+test("retries a wrapped SDK submission closure", async () => {
+  let attempts = 0;
+  const wrappedDisconnect = {
+    toString: () => "(FiberFailure) SubmissionError: Transaction submission failed: disconnected from wss://rpc.preprod.midnight.network/: 1000:: Normal Closure",
+  };
+
+  const hash = await submitWithRetry(async () => {
+    attempts += 1;
+    if (attempts === 1) throw wrappedDisconnect;
+    return "tx-hash";
+  }, { delayMs: 0 });
+
+  assert.equal(hash, "tx-hash");
+  assert.equal(attempts, 2);
+});
+
 test("does not retry a non-transient submission error", async () => {
   let attempts = 0;
 
