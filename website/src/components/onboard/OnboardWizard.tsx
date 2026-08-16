@@ -341,13 +341,11 @@ function FundStep({
 }
 
 function DoneStep({
-	emailDone,
 	handleDone,
 	profileDone,
 	twitterDone,
 	onComplete,
 }: {
-	emailDone: boolean;
 	handleDone: boolean;
 	profileDone: boolean;
 	/** Omitted by the CLI wizard (no X step); set by the web wizard. */
@@ -364,7 +362,6 @@ function DoneStep({
 				{t("onboard.doneTitle")}
 			</h2>
 			<ul className="flex flex-col gap-1 text-sm text-front">
-				<li>{t("onboard.doneEmail", { status: statusLabel(emailDone) })}</li>
 				<li>
 					{t("onboard.doneProfile", { status: statusLabel(profileDone) })}
 				</li>
@@ -472,7 +469,6 @@ export function OnboardWizard(): FunctionComponent {
 
 			{step === "done" ? (
 				<DoneStep
-					emailDone={true}
 					handleDone={handleDone}
 					profileDone={profileDone}
 					onComplete={() => {
@@ -598,7 +594,6 @@ export function WebOnboardWizard({
 
 			{step === "done" ? (
 				<DoneStep
-					emailDone={true}
 					handleDone={handleDone}
 					profileDone={profileDone}
 					onComplete={() => {

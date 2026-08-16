@@ -1,22 +1,21 @@
-import { Buffer } from "node:buffer";
-import { sha256 } from "@noble/hashes/sha2.js";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 
 import { requireDirectoryAuth } from "../auth/middleware.js";
-import { config } from "../config.js";
+import {
+  allowsInitialUserWrite,
+  hashVerificationCode,
+  isEmailVerified,
+  verificationCodeMatches,
+} from "../auth/user-security.js";
 import { db } from "../db/client.js";
 import { agents, handles, profiles } from "../db/schema.js";
 import { users } from "../db/social-schema.js";
 
 export const usersRoutes = new Hono();
 
-function hashVerificationCode(email: string, code: string): string {
-  return Buffer.from(sha256(new TextEncoder().encode(`${email.toLowerCase().trim()}:${code.trim()}`))).toString("hex");
-}
-
-function toUserResponse(
+export function toUserResponse(
   agentId: string,
   user?: typeof users.$inferSelect | null,
   profile?: typeof profiles.$inferSelect | null,
@@ -35,8 +34,8 @@ function toUserResponse(
     bio: profile?.bio ?? "",
     avatarEmail: metadata.avatarEmail as string | undefined,
     email: user?.email ?? undefined,
-    emailVerified: true,
-    emailVerifiedAt: user?.updatedAt?.toISOString() ?? new Date().toISOString(),
+    emailVerified: isEmailVerified(user?.emailVerified),
+    emailVerifiedAt: isEmailVerified(user?.emailVerified) ? user?.updatedAt.toISOString() : undefined,
     emailVerificationRequestedAt: metadata.emailVerificationRequestedAt as string | undefined,
     username: user?.username ?? handle?.name,
     link: metadata.link as string | undefined,
@@ -51,7 +50,7 @@ async function verifyUserOwnership(
   auth: { agentId: string; publicKeyBase64?: string },
   targetAgentId: string,
 ): Promise<boolean> {
-  if (auth.agentId === targetAgentId || (auth.publicKeyBase64 && auth.publicKeyBase64 === targetAgentId)) {
+  if (allowsInitialUserWrite(auth, targetAgentId)) {
     return true;
   }
 
@@ -63,13 +62,13 @@ async function verifyUserOwnership(
     if (auth.publicKeyBase64 && agent.publicKeyBase64 === auth.publicKeyBase64) {
       return true;
     }
-    if (agent.midnightAddress && (agent.midnightAddress === targetAgentId || agent.midnightAddress === auth.agentId)) {
+    if (agent.midnightAddress && agent.midnightAddress === auth.agentId) {
       return true;
     }
     return false;
   }
 
-  return true;
+  return false;
 }
 
 async function ensureAgentRecord(agentId: string, publicKeyBase64?: string) {
@@ -354,15 +353,7 @@ usersRoutes.post("/users/:agentId/email/verification/confirm", requireDirectoryA
     return c.json({ error: "Too many failed attempts. Please request a new code.", code: "TOO_MANY_ATTEMPTS" }, 429);
   }
 
-  const hasEmailProvider = Boolean(process.env.RESEND_API_KEY || process.env.SMTP_HOST);
-  const devBypassAllowed =
-    config.NODE_ENV !== "production" ||
-    config.HACKATHON_DEV_MODE ||
-    process.env.ALLOW_DEV_EMAIL_CODE === "true" ||
-    !hasEmailProvider;
-
-  const expectedHash = hashVerificationCode(email, body.code);
-  const codeMatches = emailVerif.codeHash === expectedHash || (devBypassAllowed && body.code.trim() === "123456");
+  const codeMatches = verificationCodeMatches(email, emailVerif.codeHash, body.code);
 
   if (!codeMatches) {
     const updatedMeta = {
