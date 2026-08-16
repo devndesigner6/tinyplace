@@ -30,17 +30,17 @@ export function MidnightNetworkBadge(): React.ReactElement {
 		? "border-emerald-800 bg-emerald-950/40 text-emerald-400"
 		: developmentFallback
 			? "border-amber-800 bg-amber-950/40 text-amber-400"
-			: "border-rose-800 bg-rose-950/40 text-rose-400";
+			: "border-amber-800 bg-amber-950/40 text-amber-400";
 	const label = ready
 		? "chain ready"
 		: developmentFallback
 			? "dev fallback"
-			: "contracts missing";
+			: "contract source ready";
 
 	return (
 		<span
 			className={`rounded-md border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${tone}`}
-			title={`${data.settlement} · ${data.midnightNetwork} · ${label}`}
+			title={`${data.settlement} · ${data.midnightNetwork} · ${label}${ready ? "" : " · Preprod deployment pending"}`}
 		>
 			{data.settlement} · {label}
 		</span>

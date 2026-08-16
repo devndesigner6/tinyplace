@@ -80,7 +80,7 @@ export const MidnightWallet = ({
 							? "deployed"
 							: health.data.hackathonDevFallback
 								? "dev fallback (off-chain demo)"
-								: "not deployed"}
+								: "contract source included (Preprod deployment pending)"}
 					</p>
 				)}
 			</div>
