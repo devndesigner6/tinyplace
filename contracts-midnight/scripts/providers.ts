@@ -10,6 +10,7 @@ import type { FinalizedTransaction } from "@midnight-ntwrk/midnight-js-protocol/
 
 import type { MidnightNetworkConfig } from "./config.ts";
 import type { WalletContext } from "./wallet.ts";
+import { submitWithRetry } from "./submit.ts";
 
 export function createContractProviders(
   config: MidnightNetworkConfig,
@@ -31,7 +32,8 @@ export function createContractProviders(
       );
       return walletContext.wallet.finalizeRecipe(recipe);
     },
-    submitTx: (tx: FinalizedTransaction): Promise<string> => walletContext.wallet.submitTransaction(tx),
+    submitTx: (tx: FinalizedTransaction): Promise<string> =>
+      submitWithRetry(() => walletContext.wallet.submitTransaction(tx)),
   };
 
   return {

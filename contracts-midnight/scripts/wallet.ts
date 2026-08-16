@@ -18,6 +18,7 @@ import * as Rx from "rxjs";
 import { WebSocket } from "ws";
 
 import type { MidnightNetworkConfig } from "./config.ts";
+import { submitWithRetry } from "./submit.ts";
 
 globalThis.WebSocket = WebSocket as unknown as typeof globalThis.WebSocket;
 
@@ -137,7 +138,7 @@ export async function registerNightForDust(walletContext: WalletContext): Promis
     (payload) => walletContext.unshieldedKeystore.signData(payload),
   );
   const finalizedTx = await walletContext.wallet.finalizeRecipe(recipe);
-  const txId = await walletContext.wallet.submitTransaction(finalizedTx);
+  const txId = await submitWithRetry(() => walletContext.wallet.submitTransaction(finalizedTx));
   console.log(`DUST registration submitted: ${txId}`);
 }
 
