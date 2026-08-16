@@ -9,6 +9,7 @@ import type { MidnightProvider } from "./midnight/provider.js";
 export type ChainJobKind =
   | "handle_claim"
   | "listing_anchor"
+  | "escrow_create"
   | "escrow_fund"
   | "escrow_deliver"
   | "escrow_accept"

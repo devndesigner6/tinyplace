@@ -64,6 +64,12 @@ export function registryRoutes(midnight: MidnightProvider) {
 
   app.post("/registry/names", requireDirectoryAuth, async (c) => {
     const body = registerSchema.parse(await c.req.json());
+    if (body.midnightTxHash) {
+      return c.json(
+        { error: "Client-supplied Midnight transaction hashes are not accepted", code: "UNVERIFIED_TX" },
+        400,
+      );
+    }
     const name = normalizeHandle(body.username);
     if (!isValidHandleLabel(name) || isReservedHandle(name)) {
       return c.json({ error: "Invalid or reserved handle", code: "INVALID_HANDLE" }, 400);
@@ -119,12 +125,12 @@ export function registryRoutes(midnight: MidnightProvider) {
         id: handleId,
         name,
         agentId,
-        status: body.midnightTxHash ? "active" : "pending_chain",
+        status: "pending_chain",
         profileVersionHash,
         ownerCommitment,
-        chainTxHash: body.midnightTxHash,
+        chainTxHash: undefined,
         contractAddress: midnight.contractAddresses().handleRegistry,
-        registeredAt: body.midnightTxHash ? new Date() : undefined,
+        registeredAt: undefined,
         expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60_000),
       })
       .onConflictDoUpdate({
@@ -132,8 +138,8 @@ export function registryRoutes(midnight: MidnightProvider) {
         set: {
           profileVersionHash,
           ownerCommitment,
-          status: body.midnightTxHash ? "active" : "pending_chain",
-          chainTxHash: body.midnightTxHash,
+          status: "pending_chain",
+          chainTxHash: undefined,
           updatedAt: new Date(),
         },
       });
@@ -155,7 +161,7 @@ export function registryRoutes(midnight: MidnightProvider) {
         },
       });
 
-    if (!body.midnightTxHash) {
+    {
       const chainJob = await createChainJob(
         {
           kind: "handle_claim",
@@ -217,14 +223,6 @@ export function registryRoutes(midnight: MidnightProvider) {
       );
     }
 
-    return c.json({
-      username: name,
-      cryptoId: agentId,
-      status: "active",
-      registrationTx: body.midnightTxHash,
-      profileVersionHash,
-      ownerCommitment,
-    });
   });
 
   app.put("/registry/names/:name/profile", requireDirectoryAuth, async (c) => {

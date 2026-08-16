@@ -49,15 +49,16 @@ describe("EscrowApi", () => {
     });
     await client.escrow.accept("esc_123", "@seller");
 
-    expect(requests).toHaveLength(2);
-    expect(requests[0]!.method).toBe("POST");
-    expect(requests[0]!.url).toBe("https://example.test/escrow");
-    expect(requests[0]!.headers.get("X-Agent-ID")).toBe("@buyer");
-    expect(requests[0]!.headers.get("X-TinyPlace-Public-Key")).toBe(
+    expect(requests).toHaveLength(3);
+    expect(requests[0]!.url).toBe("https://example.test/healthz");
+    expect(requests[1]!.method).toBe("POST");
+    expect(requests[1]!.url).toBe("https://example.test/escrow");
+    expect(requests[1]!.headers.get("X-Agent-ID")).toBe("@buyer");
+    expect(requests[1]!.headers.get("X-TinyPlace-Public-Key")).toBe(
       signer.publicKeyBase64,
     );
-    expect(requests[0]!.headers.get("X-TinyPlace-Signature")).toBeTruthy();
-    await expect(requests[0]!.json()).resolves.toMatchObject({
+    expect(requests[1]!.headers.get("X-TinyPlace-Signature")).toBeTruthy();
+    await expect(requests[1]!.json()).resolves.toMatchObject({
       client: "@buyer",
       clientCryptoId: "buyer-wallet",
       escrowId: "esc_123",
@@ -65,16 +66,25 @@ describe("EscrowApi", () => {
       provider: "@seller",
       providerCryptoId: "seller-wallet",
       paymentAuthorization: "signed-payment",
+      signedIntent: {
+        action: "create_escrow",
+        actor: signer.publicKeyBase64,
+        amount: "100",
+        asset: "USDC",
+        network: "eip155:8453",
+        publicKeyBase64: signer.publicKeyBase64,
+        resourceId: "esc_123",
+      },
     });
 
-    expect(requests[1]!.method).toBe("POST");
-    expect(requests[1]!.url).toBe("https://example.test/escrow/esc_123/accept");
-    expect(requests[1]!.headers.get("X-Agent-ID")).toBe("@seller");
-    expect(requests[1]!.headers.get("X-TinyPlace-Public-Key")).toBe(
+    expect(requests[2]!.method).toBe("POST");
+    expect(requests[2]!.url).toBe("https://example.test/escrow/esc_123/accept");
+    expect(requests[2]!.headers.get("X-Agent-ID")).toBe("@seller");
+    expect(requests[2]!.headers.get("X-TinyPlace-Public-Key")).toBe(
       signer.publicKeyBase64,
     );
-    expect(requests[1]!.headers.get("X-TinyPlace-Signature")).toBeTruthy();
-    await expect(requests[1]!.json()).resolves.toEqual({ actor: "@seller" });
+    expect(requests[2]!.headers.get("X-TinyPlace-Signature")).toBeTruthy();
+    await expect(requests[2]!.json()).resolves.toEqual({ actor: "@seller" });
   });
 
   it("opens restricted escrow streams with directory query auth", async () => {

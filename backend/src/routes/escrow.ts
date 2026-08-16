@@ -121,6 +121,15 @@ export function escrowRoutes(midnight: MidnightProvider) {
       where: eq(escrows.escrowId, c.req.param("escrowId")),
     });
     if (!row) return c.json({ error: "Escrow not found" }, 404);
+    const actor = c.get("auth").agentId;
+    if (
+      actor !== row.client &&
+      actor !== row.provider &&
+      actor !== row.clientCryptoId &&
+      actor !== row.providerCryptoId
+    ) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     return c.json(toApiEscrow(row));
   });
 
@@ -175,7 +184,7 @@ export function escrowRoutes(midnight: MidnightProvider) {
       jobCommitment: body.jobCommitment,
       contractAddress: midnight.contractAddresses().escrow,
       contractEscrowId: escrowId,
-      chainAuthoritative: true,
+      chainAuthoritative: false,
     });
 
     if (body.jobId) {
@@ -188,7 +197,41 @@ export function escrowRoutes(midnight: MidnightProvider) {
     const row = await db.query.escrows.findFirst({
       where: eq(escrows.escrowId, escrowId),
     });
-    return c.json(toApiEscrow(row!));
+    const chainJob = await createChainJob(
+      {
+        kind: "escrow_create",
+        agentId: body.client,
+        resourceType: "escrow",
+        resourceId: escrowId,
+        payload: {
+          escrowId,
+          buyerCommitment: body.clientCryptoId ?? body.client,
+          sellerCommitment: body.providerCryptoId ?? body.provider,
+          amount: body.amount,
+          asset: body.asset,
+          listingVersionHash: body.listingVersionHash ?? escrowId,
+          jobCommitment: body.jobCommitment ?? escrowId,
+          deadline: body.terms["deadline"],
+        },
+        idempotencyKey: `escrow_create:${escrowId}`,
+      },
+      midnight,
+    );
+    if (chainJob.status !== "finalized") {
+      return c.json({ ...toApiEscrow(row!), chainJob, status: "submitted" }, 202);
+    }
+    await db
+      .update(escrows)
+      .set({
+        chainAuthoritative: true,
+        onChainTx: chainJob.txHash,
+        updatedAt: new Date(),
+      })
+      .where(eq(escrows.escrowId, escrowId));
+    const updated = await db.query.escrows.findFirst({
+      where: eq(escrows.escrowId, escrowId),
+    });
+    return c.json({ ...toApiEscrow(updated!), chainJob });
   });
 
   app.post("/escrow/:escrowId/fund-intent", requireDirectoryAuth, async (c) => {
@@ -244,7 +287,12 @@ export function escrowRoutes(midnight: MidnightProvider) {
         agentId: row.client,
         resourceType: "escrow",
         resourceId: escrowId,
-        payload: { escrowId, txHash: body.midnightTxHash },
+        payload: {
+          escrowId,
+          txHash: body.midnightTxHash,
+          callerCommitment: row.clientCryptoId ?? row.client,
+          buyerCommitment: row.clientCryptoId ?? row.client,
+        },
         idempotencyKey: body.idempotencyKey ?? `escrow_fund:${escrowId}`,
         submittedTxHash: body.midnightTxHash,
       },

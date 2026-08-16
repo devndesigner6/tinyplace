@@ -39,10 +39,10 @@
 
 | Smart Contract | Network | Deployed Address |
 | :--- | :--- | :--- |
-| **HandleRegistry** | midnight:preprod | `591eba4aa1fcd56b5abff6dd76101bfde13633b99cf2dca4b43ef58648833784` |
-| **ListingRegistry** | midnight:preprod | `55b3c62de8fdbcaa3ddb20a7100291b7410968bcaefb3b821718368b8848bf4e` |
-| **Escrow** | midnight:preprod | `f5a640d646abe63b99dbe4190453c8750d5de2cd4c27752c9ed2895faec695c9` |
-| **Attestation** | midnight:preprod | `573468ffcd9b06e89a631696a40224315a21c05728e1f29cbde40cd1dcfe60da` |
+| **HandleRegistry** | Preprod verification required | Do not treat this as deployed until an explorer link is recorded |
+| **ListingRegistry** | Preprod verification required | Do not treat this as deployed until an explorer link is recorded |
+| **Escrow** | Preprod verification required | Do not treat this as deployed until an explorer link is recorded |
+| **Attestation** | Preprod verification required | Do not treat this as deployed until an explorer link is recorded |
 
 ---
 

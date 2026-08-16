@@ -42,7 +42,15 @@ const configSchema = z.object({
   ATTESTATION_CONTRACT_ADDRESS: z.string().optional(),
   SETTLEMENT_NETWORK: z.enum(["midnight", "solana"]).default("midnight"),
   /** Fail closed in production. Off-chain activation requires explicit local flag. */
-  HACKATHON_DEV_MODE: z.coerce.boolean().default(false),
+  HACKATHON_DEV_MODE: z
+    .preprocess(
+      (value) =>
+        typeof value === "string"
+          ? value.trim().toLowerCase() === "true"
+          : value,
+      z.boolean(),
+    )
+    .default(false),
   AUTH_TIMESTAMP_SKEW_MS: z.coerce.number().default(300_000),
   CORS_ORIGIN: z.string().default("http://localhost:3000"),
 });

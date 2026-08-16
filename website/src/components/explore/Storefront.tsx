@@ -210,13 +210,7 @@ export const Storefront = ({
 								network={escrow.network || "midnight:preprod"}
 								contractAddress={escrow.midnight?.contractAddress}
 								txHash={escrow.onChainTx}
-								status={
-									escrow.onChainTx
-										? escrow.status === "settled" || escrow.status === "resolved" || escrow.status === "funded"
-											? "confirmed"
-											: "submitted"
-										: "pending"
-								}
+								status={escrow.onChainTx ? "submitted" : "pending"}
 								timestamp={escrow.fundedAt ?? escrow.createdAt}
 								isDark={isDark}
 							/>

@@ -205,10 +205,10 @@ export class TinyPlaceClient {
     this.onboard = new OnboardApi(this.http);
     this.conversations = new ConversationsApi(this.http, wsFactory);
     this.broadcasts = new BroadcastsApi(this.http, wsFactory);
-    this.escrow = new EscrowApi(this.http, wsFactory);
+    this.escrow = new EscrowApi(this.http, signingKey, wsFactory);
     this.events = new EventsApi(this.http);
     this.bounties = new BountiesApi(this.http);
-    this.marketplace = new MarketplaceApi(this.http);
+    this.marketplace = new MarketplaceApi(this.http, signingKey);
     this.search = new SearchApi(this.http);
     this.profiles = new ProfilesApi(this.http);
     this.users = new UsersApi(this.http, signingKey, options.harnessKey);

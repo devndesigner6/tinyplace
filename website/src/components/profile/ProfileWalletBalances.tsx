@@ -61,7 +61,7 @@ function BalanceRow({
 					}`}
 				>
 					{t("profile.balances.midnightHint", {
-						defaultValue: "Fund via local Midnight genesis wallet",
+						defaultValue: "Connect a Midnight wallet to view verified balances",
 					})}
 				</p>
 			</div>
@@ -122,7 +122,7 @@ export const ProfileWalletBalances = ({
 							className={`mt-1 text-xs ${isDark ? "text-neutral-500" : "text-neutral-500"}`}
 						>
 							{t("profile.balances.midnightSubtitle", {
-								defaultValue: "Midnight network balances (local dev)",
+						defaultValue: "Midnight network balances",
 							})}
 						</p>
 					</div>

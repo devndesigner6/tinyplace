@@ -1,4 +1,6 @@
+import type { SigningKey } from "../auth.js";
 import type { HttpClient } from "../http.js";
+import { createMidnightSignedIntent } from "../midnight-intent.js";
 import type { TinyPlaceWebSocket } from "../websocket.js";
 import type {
   Escrow,
@@ -13,6 +15,7 @@ import { listField } from "../safe.js";
 export class EscrowApi {
   constructor(
     private readonly http: HttpClient,
+    private readonly signingKey?: SigningKey,
     private readonly wsFactory?: (
       path: string,
       options?: { directoryAuth?: boolean },
@@ -30,11 +33,21 @@ export class EscrowApi {
       .then((result) => ({ escrows: listField<Escrow>(result, "escrows") }));
   }
 
-  create(request: EscrowCreateRequest): Promise<Escrow> {
+  async create(request: EscrowCreateRequest): Promise<Escrow> {
+    const escrowId = request.escrowId ?? `esc_${globalThis.crypto.randomUUID()}`;
+    const health = await this.http.get<{ contracts?: { escrow?: string } }>("/healthz");
+    const signedIntent = await createMidnightSignedIntent(this.signingKey, {
+      action: "create_escrow",
+      amount: request.amount,
+      asset: request.asset,
+      contractAddress: health.contracts?.escrow ?? "",
+      network: request.network,
+      resourceId: escrowId,
+    });
     return this.http.postDirectoryAuthAs<Escrow>(
       "/escrow",
       request.client,
-      request,
+      { ...request, escrowId, signedIntent },
     );
   }
 

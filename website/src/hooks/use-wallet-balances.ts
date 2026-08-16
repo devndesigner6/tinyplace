@@ -15,9 +15,6 @@ type WalletBalance = {
 	symbol: string;
 };
 
-const MIDNIGHT_NETWORK =
-	process.env["NEXT_PUBLIC_MIDNIGHT_NETWORK"] ?? "undeployed";
-
 export function formatUnits(rawAmount: bigint, decimals: number): string {
 	const negative = rawAmount < 0n;
 	const absolute = negative ? -rawAmount : rawAmount;
@@ -45,16 +42,7 @@ export function useWalletBalancesForAddress(
 			if (!wallet) {
 				return Promise.resolve([]);
 			}
-			return Promise.resolve([
-				{
-					amount: "—",
-					decimals: 6,
-					kind: "native",
-					network: `midnight:${MIDNIGHT_NETWORK}`,
-					rawAmount: "0",
-					symbol: "NIGHT",
-				},
-			]);
+			return Promise.resolve([]);
 		},
 		enabled: Boolean(wallet),
 	});

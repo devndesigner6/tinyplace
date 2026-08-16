@@ -14,7 +14,8 @@ import {
   type SignedTransactionIntent,
   type TransactionIntent,
 } from "../src/auth/signed-intent.js";
-import { config } from "../src/config.js";
+import { config, loadConfig } from "../src/config.js";
+import { contractsDeployed } from "../src/services/hackathon-dev.js";
 
 // Simulated in-memory representation of Compact contract circuit state machines
 // to verify all authorization, deadline, and transition rules under the exact logic of our Compact sources.
@@ -596,5 +597,18 @@ describe("Signed Transaction Intent Verification", () => {
 describe("Production Fail-Closed Configuration", () => {
   it("defaults HACKATHON_DEV_MODE to false", () => {
     expect(config.HACKATHON_DEV_MODE).toBe(false);
+  });
+
+  it("parses the Render string value false as false", () => {
+    expect(loadConfig({ HACKATHON_DEV_MODE: "false" }).HACKATHON_DEV_MODE).toBe(false);
+  });
+
+  it("does not report undeployed contracts as ready", () => {
+    expect(
+      contractsDeployed({
+        network: () => "midnight:undeployed",
+        contractAddresses: () => ({ handleRegistry: "a", listingRegistry: "b", escrow: "c" }),
+      } as any),
+    ).toBe(false);
   });
 });

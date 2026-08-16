@@ -4,7 +4,8 @@ import type { MidnightProvider } from "./midnight/provider.js";
 export function contractsDeployed(midnight: MidnightProvider): boolean {
   const addresses = midnight.contractAddresses();
   return Boolean(
-    addresses.handleRegistry &&
+    midnight.network() !== "midnight:undeployed" &&
+      addresses.handleRegistry &&
       addresses.listingRegistry &&
       addresses.escrow,
   );

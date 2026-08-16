@@ -83,6 +83,9 @@ export class MidnightJsProvider implements MidnightProvider {
     if (config.MIDNIGHT_NETWORK === "local") {
       return `midnight:${deployed ?? "undeployed"}`;
     }
+    if (deployed !== config.MIDNIGHT_NETWORK) {
+      return "midnight:undeployed";
+    }
     return `midnight:${config.MIDNIGHT_NETWORK}`;
   }
 
@@ -97,6 +100,12 @@ export class MidnightJsProvider implements MidnightProvider {
   }
 
   async submitJob(input: MidnightJobInput): Promise<MidnightJobResult> {
+    if (this.network() === "midnight:undeployed") {
+      return {
+        status: "permanent_failure",
+        error: "Midnight deployment state does not match the configured network.",
+      };
+    }
     if (input.submittedTxHash) {
       return this.observeTx(input.submittedTxHash);
     }

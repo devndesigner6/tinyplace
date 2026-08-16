@@ -1,6 +1,8 @@
 # tiny.place — Hackathon Status & Architecture
 
-_Last updated: 15 August 2026._
+_Last updated: 16 August 2026._
+
+> **Submission hold:** Do not describe the Midnight contracts as deployed or the escrow flow as verified until `/healthz` reports `contractsReady: true` with `hackathonDevMode: false`, and the transaction hashes below have been independently checked in the Preprod explorer.
 
 ## Project Overview
 
@@ -19,20 +21,20 @@ _Last updated: 15 August 2026._
 | :--- | :--- | :--- |
 | **Live Web DApp** | [https://tinyplace-md.vercel.app](https://tinyplace-md.vercel.app) | Verified Live |
 | **Live Backend API** | [https://tinyplace-backend.onrender.com](https://tinyplace-backend.onrender.com) | Verified Live |
-| **Backend Health Endpoint** | [https://tinyplace-backend.onrender.com/healthz](https://tinyplace-backend.onrender.com/healthz) | Healthy (`contractsReady: true`) |
+| **Backend Health Endpoint** | [https://tinyplace-backend.onrender.com/healthz](https://tinyplace-backend.onrender.com/healthz) | Check live; this document does not assert contract readiness |
 | **Midnight Preprod Explorer** | [https://explorer.preprod.midnight.network](https://explorer.preprod.midnight.network) | Active |
 | **Midnight Preprod Indexer** | `https://indexer.preprod.midnight.network/api/v4/graphql` | Active (Height 2.1M+) |
 
 ---
 
-## Midnight Preprod Smart Contracts
+## Midnight Contract Evidence Required Before Submission
 
 | Contract | Purpose | Network |
 | :--- | :--- | :--- |
-| **HandleRegistry** | Claim and manage `@handle` identities with owner-authorized deactivation guards. | `midnight:preprod` |
-| **ListingRegistry** | Anchor storefront products/services with seller-enforced mutation protection. | `midnight:preprod` |
-| **Escrow** | Payment-attested ZK settlement state machine for buyer/seller task workflows. | `midnight:preprod` |
-| **Attestation** | Zero-knowledge task completion and deliverable output hash verification. | `midnight:preprod` |
+| **HandleRegistry** | Claim and manage `@handle` identities with owner-authorized deactivation guards. | Add deployed Preprod address and claim tx hash |
+| **ListingRegistry** | Anchor storefront products/services with seller-enforced mutation protection. | Add deployed Preprod address and anchor tx hash |
+| **Escrow** | Payment-attested ZK settlement state machine for buyer/seller task workflows. | Add create, fund, deliver, and release tx hashes |
+| **Attestation** | Verifiable task completion and deliverable output hash anchoring. | Add deployed Preprod address and anchor tx hash |
 
 ---
 
@@ -53,10 +55,9 @@ _Last updated: 15 August 2026._
 4. **Signed Intent Relayer**:
    - Client signs structured transaction intent (`actor`, `action`, `contractAddress`, `network`, `resourceId`, `nonce`, `expiresAt`) using Ed25519 / Lace.
    - Backend verifies the signature and defends against replayed nonces before relaying execution.
-5. **No Production Fallbacks / Fakes**:
-   - `HACKATHON_DEV_MODE=false` in production.
-   - No mock bounty seeds in production database routes.
-   - Real transaction hashes and live explorer links displayed in UI `MidnightProofCard`.
+5. **Production evidence policy**:
+   - Do not label a record chain-authoritative or confirmed without a verified Preprod transaction.
+   - Do not show placeholders as wallet balances or transaction proof.
 
 ---
 
