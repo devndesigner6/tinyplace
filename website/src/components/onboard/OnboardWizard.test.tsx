@@ -1,10 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import {
-	LocalSigner,
-	mintOnboardGrant,
-	type Identity,
-	type TinyPlaceClient,
-	type User,
+import type {
+	Identity,
+	TinyPlaceClient,
+	User,
 } from "@tinyhumansai/tinyplace";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -28,23 +26,19 @@ describe("OnboardWizard", () => {
 		expect(screen.getByText(/Onboarding link required/i)).toBeTruthy();
 	});
 
-	it("renders the email step for a valid grant in the URL fragment", async () => {
-		const signer = await LocalSigner.fromSeed(new Uint8Array(32).fill(5));
-		const credential = await mintOnboardGrant(
-			signer,
-			signer.publicKeyBase64,
-			["user.email.start", "user.email.confirm", "user.profile"],
-			15 * 60 * 1000
-		);
-		window.location.hash = `#grant=${encodeURIComponent(credential.fragmentValue())}`;
+	it("renders a valid onboarding grant from the URL fragment", () => {
+		const wallet = "wallet-test";
+		const encodedClaims =
+			"eyJ3YWxsZXQiOiJ3YWxsZXQtdGVzdCIsIm93bmVyUHVibGljS2V5Ijoib3duZXItdGVzdCIsInNjb3BlIjpbXSwiZXhwaXJlc0F0IjoiMjA5OS0wMS0wMVQwMDowMDowMC4wMDBaIn0";
+		const grant = `og1.${encodedClaims}.test-signature`;
+		window.location.hash = `#grant=${encodeURIComponent(`${wallet}:${grant}`)}`;
 
 		render(<OnboardWizard />);
 
 		expect(screen.getByText(/Finish setting up your agent/i)).toBeTruthy();
-		expect(screen.getByText(/Verify your email/i)).toBeTruthy();
-		// The short wallet uses the grant's wallet (the signer's agentId).
-		const prefix = signer.agentId.slice(0, 6);
-		expect(screen.getByText(new RegExp(prefix))).toBeTruthy();
+		expect(screen.getByText(/Set up your profile/i)).toBeTruthy();
+		// The short wallet uses the wallet carried by the parsed grant.
+		expect(screen.getByText("wallet-test")).toBeTruthy();
 	});
 });
 
@@ -61,10 +55,11 @@ describe("WebOnboardWizard", () => {
 			/>
 		);
 
-		// Starts on the handle step; jump back to email via the stepper.
+		// A verified account with no active identity starts on the handle step;
+		// jump back to the profile step via the current four-step stepper.
 		expect(screen.getByText(/Claim your identity/i)).toBeTruthy();
-		fireEvent.click(screen.getByRole("button", { name: "Email" }));
-		expect(screen.getByText(/Verify your email/i)).toBeTruthy();
+		fireEvent.click(screen.getByRole("button", { name: "Profile" }));
+		expect(screen.getByText(/Set up your profile/i)).toBeTruthy();
 	});
 
 	it("finalizes from the All set step via the Complete button", () => {

@@ -1,7 +1,7 @@
 // Build-time feature flags for the GraphQL-gateway migration. These read
 // NEXT_PUBLIC_* env vars (inlined at build time), so flipping one requires a
-// rebuild. GraphQL is the default optimized read path; set a flag to 0/false/no
-// to temporarily fall back to the legacy REST hook.
+// rebuild. The home-feed GraphQL path is opt-in until its gateway response shape
+// is deployed; the legacy REST hook is the safe public-demo default.
 
 function flagEnabled(value: string | undefined): boolean {
 	if (!value) {
@@ -24,7 +24,7 @@ function flagEnabledDefaultOff(value: string | undefined): boolean {
 }
 
 /** Use the GraphQL gateway for the home feed + comments (the 429 hotspot). */
-export const graphqlFeedEnabled: boolean = flagEnabled(
+export const graphqlFeedEnabled: boolean = flagEnabledDefaultOff(
 	process.env["NEXT_PUBLIC_GRAPHQL_FEED"]
 );
 

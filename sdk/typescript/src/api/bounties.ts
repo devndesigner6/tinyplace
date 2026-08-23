@@ -21,10 +21,9 @@ export class BountiesApi {
 
   list(params?: BountyQueryParams): Promise<{ bounties: Array<Bounty> }> {
     return this.http
-      .get<{ bounties: Array<Bounty> | null }>(
-        "/bounties",
-        params as Record<string, unknown>,
-      )
+      .get<{
+        bounties: Array<Bounty> | null;
+      }>("/bounties", params as Record<string, unknown>)
       .then((result) => ({ bounties: listField<Bounty>(result, "bounties") }));
   }
 
@@ -39,7 +38,10 @@ export class BountiesApi {
    * signed SPL transfer rides in the header and the body carries NO `payment`
    * field.
    */
-  create(request: BountyCreateRequest, paymentHeader?: string): Promise<Bounty> {
+  create(
+    request: BountyCreateRequest,
+    paymentHeader?: string,
+  ): Promise<Bounty> {
     return this.http.postDirectoryAuthAs<Bounty>(
       "/bounties",
       request.creator ?? "",
@@ -64,7 +66,7 @@ export class BountiesApi {
     request: BountySubmissionCreateRequest,
   ): Promise<BountySubmission> {
     return this.http.postDirectoryAuthAs<BountySubmission>(
-      `/bounties/${encodeURIComponent(bountyId)}/submissions`,
+      `/bounties/${encodeURIComponent(bountyId)}/submit`,
       request.submitter ?? "",
       request,
     );
@@ -75,10 +77,9 @@ export class BountiesApi {
     params?: { status?: string; submitter?: string; limit?: number },
   ): Promise<{ submissions: Array<BountySubmission> }> {
     return this.http
-      .get<{ submissions: Array<BountySubmission> | null }>(
-        `/bounties/${encodeURIComponent(bountyId)}/submissions`,
-        params as Record<string, unknown>,
-      )
+      .get<{
+        submissions: Array<BountySubmission> | null;
+      }>(`/bounties/${encodeURIComponent(bountyId)}/submissions`, params as Record<string, unknown>)
       .then((result) => ({
         submissions: listField<BountySubmission>(result, "submissions"),
       }));
@@ -91,7 +92,7 @@ export class BountiesApi {
     request: BountyCommentCreateRequest,
   ): Promise<BountyComment> {
     return this.http.postDirectoryAuthAs<BountyComment>(
-      `/bounties/${encodeURIComponent(bountyId)}/comments`,
+      `/bounties/${encodeURIComponent(bountyId)}/comment`,
       request.author ?? "",
       request,
     );
@@ -102,10 +103,9 @@ export class BountiesApi {
     params?: { limit?: number; offset?: number },
   ): Promise<{ comments: Array<BountyComment> }> {
     return this.http
-      .get<{ comments: Array<BountyComment> | null }>(
-        `/bounties/${encodeURIComponent(bountyId)}/comments`,
-        params as Record<string, unknown>,
-      )
+      .get<{
+        comments: Array<BountyComment> | null;
+      }>(`/bounties/${encodeURIComponent(bountyId)}/comments`, params as Record<string, unknown>)
       .then((result) => ({
         comments: listField<BountyComment>(result, "comments"),
       }));

@@ -70,7 +70,12 @@ graphqlRoutes.post("/graphql", async (c) => {
 
   return c.json({
     data: {
-      homeFeed: { posts: [], nextCursor: null },
+      homeFeed: {
+        items: [],
+        count: 0,
+        nextCursor: null,
+        note: "No feed posts are available in this deployment yet.",
+      },
     },
   });
 });

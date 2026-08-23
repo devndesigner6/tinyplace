@@ -27,6 +27,7 @@ import {
 	useUploadThumbnail,
 } from "@src/hooks/use-bounties";
 import { useAuthStore } from "@src/store/auth";
+import { useBackendHealth } from "@src/hooks/use-backend-health";
 
 import {
 	cardClass,
@@ -97,12 +98,39 @@ export const Bounties = ({
 }: {
 	isDark: boolean;
 }): FunctionComponent => {
-	const { t } = useTranslation();
-	const [view, setView] = useState<View>({ kind: "browse" });
+		const { t } = useTranslation();
+		const [view, setView] = useState<View>({ kind: "browse" });
+		const health = useBackendHealth();
+		const backendOnline = health.data?.status === "ok";
+		const chainReady = health.data?.contractsReady === true;
+		const developmentFallback = health.data?.hackathonDevFallback === true;
 
-	return (
-		<div className="space-y-3">
-			<div className="flex items-center justify-between">
+		return (
+			<div className="space-y-3">
+				{backendOnline && !chainReady ? (
+					<div
+						role="status"
+						className={`rounded-lg border px-3 py-2 text-xs ${
+							developmentFallback
+								? "border-amber-700 bg-amber-950/30 text-amber-300"
+								: "border-amber-800 bg-amber-950/20 text-amber-300"
+						}`}
+					>
+						<strong>Midnight settlement pending.</strong>{" "}
+						Bounty records are available through the backend, but this deployment
+						does not currently have a verified Midnight escrow contract.
+					</div>
+				) : null}
+				{health.isError ? (
+					<div
+						className="rounded-lg border border-rose-800 bg-rose-950/20 px-3 py-2 text-xs text-rose-300"
+						role="alert"
+					>
+						The backend is unavailable or waking up. Bounties cannot be loaded
+						until the API responds.
+					</div>
+				) : null}
+				<div className="flex items-center justify-between">
 				<div className="flex gap-1">
 					<Chip
 						active={view.kind === "browse"}

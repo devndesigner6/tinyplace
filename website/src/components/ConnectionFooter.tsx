@@ -9,8 +9,9 @@ import { useAuthStore } from "@src/store/auth";
 import { useBackendHealth } from "@src/hooks/use-backend-health";
 
 const API_BASE_URL =
-	(process.env as Record<string, string | undefined>)["NEXT_PUBLIC_API_BASE_URL"] ||
-	"https://tinyplace-backend.onrender.com";
+	(process.env as Record<string, string | undefined>)[
+		"NEXT_PUBLIC_API_BASE_URL"
+	] || "https://tinyplace-backend.onrender.com";
 
 /** Strips the scheme so only the host (+ path) shows in the status bar. */
 function serverHost(url: string): string {
@@ -66,13 +67,31 @@ export const ConnectionFooter = (): FunctionComponent => {
 	const authenticated = Boolean(signer);
 
 	const backendOnline = !health.isError && health.data?.status === "ok";
-	const statusLabel = wallet.connected
-		? t("connection.connected", { defaultValue: "Connected" })
-		: backendOnline
-			? "Backend Ready"
-			: t("connection.disconnected", { defaultValue: "Disconnected" });
+	const chainReady = backendOnline && health.data?.contractsReady === true;
+	const developmentFallback =
+		backendOnline && health.data?.hackathonDevFallback === true;
+	const statusLabel =
+		wallet.connected && backendOnline
+			? t("connection.connected", { defaultValue: "Connected" })
+			: wallet.connected
+				? "Wallet connected"
+				: chainReady
+					? "Chain ready"
+					: developmentFallback
+						? "Dev fallback"
+						: backendOnline
+							? "Backend only"
+							: health.isLoading
+								? "Connecting…"
+								: t("connection.disconnected", {
+										defaultValue: "Disconnected",
+									});
 
-	const statusColor = wallet.connected || backendOnline ? "bg-emerald-400" : "bg-red-400";
+	const statusColor = !backendOnline
+		? "bg-red-400"
+		: wallet.connected || chainReady
+			? "bg-emerald-400"
+			: "bg-amber-400";
 
 	return (
 		<footer
@@ -96,6 +115,23 @@ export const ConnectionFooter = (): FunctionComponent => {
 				label={t("connection.server")}
 				value={serverHost(API_BASE_URL)}
 			/>
+			{health.data ? (
+				<>
+					<Divider isDark={isDark} />
+					<Stat
+						isDark={isDark}
+						label="midnight"
+						title={`${health.data.settlement} · ${health.data.midnightNetwork}`}
+						value={
+							chainReady
+								? "ready"
+								: developmentFallback
+									? "fallback"
+									: "pending"
+						}
+					/>
+				</>
+			) : null}
 			{authenticated && agentId ? (
 				<>
 					<Divider isDark={isDark} />

@@ -6,6 +6,7 @@ import { chainRoutes } from "./routes/chain.js";
 import { directoryRoutes } from "./routes/directory.js";
 import { escrowRoutes } from "./routes/escrow.js";
 import { eventsRoutes } from "./routes/events.js";
+import { feedRoutes } from "./routes/feed.js";
 import { graphqlRoutes } from "./routes/graphql.js";
 import { groupsRoutes } from "./routes/groups.js";
 import { healthRoutes } from "./routes/health.js";
@@ -35,8 +36,14 @@ export function createApp() {
     cors({
       origin: (origin) => {
         if (!origin) return "*";
-        if (config.CORS_ORIGIN === "*" || config.CORS_ORIGIN === origin) return origin;
-        if (origin.endsWith(".vercel.app") || origin.includes("localhost") || origin.includes("127.0.0.1")) return origin;
+        if (config.CORS_ORIGIN === "*" || config.CORS_ORIGIN === origin)
+          return origin;
+        if (
+          origin.endsWith(".vercel.app") ||
+          origin.includes("localhost") ||
+          origin.includes("127.0.0.1")
+        )
+          return origin;
         return config.CORS_ORIGIN;
       },
       allowHeaders: [
@@ -73,7 +80,7 @@ export function createApp() {
       healthz: "/healthz",
       settlement: config.SETTLEMENT_NETWORK,
       midnightNetwork: midnight.network(),
-    })
+    }),
   );
 
   app.route("/", healthRoutes);
@@ -83,6 +90,7 @@ export function createApp() {
   app.route("/", directoryRoutes);
   app.route("/", groupsRoutes());
   app.route("/", eventsRoutes());
+  app.route("/", feedRoutes);
   app.route("/", profilesRoutes);
   app.route("/", searchRoutes);
   app.route("/", keysRoutes);
