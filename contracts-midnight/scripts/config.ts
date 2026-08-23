@@ -44,16 +44,26 @@ export class UndeployedConfig implements MidnightNetworkConfig {
   }
 }
 
-export class PreprodConfig implements MidnightNetworkConfig {
-  readonly networkId = "preprod";
-  readonly indexer = process.env.MIDNIGHT_INDEXER_URL ?? "https://indexer.preprod.midnight.network/api/v4/graphql";
-  readonly indexerWS = process.env.MIDNIGHT_INDEXER_WS ?? "wss://indexer.preprod.midnight.network/api/v4/graphql/ws";
-  readonly node = process.env.MIDNIGHT_RPC_URL ?? "https://rpc.preprod.midnight.network";
-  readonly nodeWS = process.env.MIDNIGHT_RPC_WS ?? "wss://rpc.preprod.midnight.network";
+export class PublicNetworkConfig implements MidnightNetworkConfig {
+  readonly networkId: "preview" | "preprod";
+  readonly indexer: string;
+  readonly indexerWS: string;
+  readonly node: string;
+  readonly nodeWS: string;
   readonly proofServer = process.env.MIDNIGHT_PROOF_SERVER_URL ?? "http://127.0.0.1:6300";
-  readonly faucet = "https://faucet.preprod.midnight.network";
+  readonly faucet: string;
 
-  constructor() {
+  constructor(networkId: "preview" | "preprod") {
+    this.networkId = networkId;
+    this.indexer =
+      process.env.MIDNIGHT_INDEXER_URL ??
+      `https://indexer.${networkId}.midnight.network/api/v4/graphql`;
+    this.indexerWS =
+      process.env.MIDNIGHT_INDEXER_WS ??
+      `wss://indexer.${networkId}.midnight.network/api/v4/graphql/ws`;
+    this.node = process.env.MIDNIGHT_RPC_URL ?? `https://rpc.${networkId}.midnight.network`;
+    this.nodeWS = process.env.MIDNIGHT_RPC_WS ?? `wss://rpc.${networkId}.midnight.network`;
+    this.faucet = `https://midnight-tmnight-${networkId}.nethermind.dev/`;
     setNetworkId(this.networkId);
   }
 
@@ -71,11 +81,22 @@ export class PreprodConfig implements MidnightNetworkConfig {
   }
 }
 
+export class PreviewConfig extends PublicNetworkConfig {
+  constructor() {
+    super("preview");
+  }
+}
+
+export class PreprodConfig extends PublicNetworkConfig {
+  constructor() {
+    super("preprod");
+  }
+}
+
 export function getNetworkConfig(): MidnightNetworkConfig {
   const env = (process.env.MIDNIGHT_NETWORK ?? "").toLowerCase();
-  if (env === "preprod" || env === "testnet") {
-    return new PreprodConfig();
-  }
+  if (env === "preview") return new PreviewConfig();
+  if (env === "preprod" || env === "testnet") return new PreprodConfig();
   return new UndeployedConfig();
 }
 

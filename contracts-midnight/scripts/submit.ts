@@ -18,7 +18,7 @@ function errorText(error: unknown): string {
 
 function isTransientWebSocketError(error: unknown): boolean {
   const message = errorText(error).toLowerCase();
-  return message.includes("normal closure") || message.includes("disconnected from wss://rpc.preprod.midnight.network");
+  return message.includes("normal closure") || /disconnected from wss:\/\/rpc\.(?:preview|preprod)\.midnight\.network/u.test(message);
 }
 
 export async function submitWithRetry<T>(

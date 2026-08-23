@@ -27,7 +27,8 @@ function isMidnightCompact(command) {
     encoding: "utf8",
     shell: process.platform === "win32",
   });
-  return probe.status === 0 && /compact/i.test(probe.stdout ?? probe.stderr ?? "");
+  const output = `${probe.stdout ?? ""}${probe.stderr ?? ""}`.trim();
+  return probe.status === 0 && /\d+\.\d+\.\d+/u.test(output);
 }
 
 function compactAvailable() {

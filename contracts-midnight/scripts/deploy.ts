@@ -18,11 +18,19 @@ export const CONTRACT_FOLDERS: Record<ContractKey, string> = {
   attestation: "attestation",
 };
 
+export type DeploymentTransaction = {
+  txId: string;
+  txHash: string;
+  blockHash: string;
+  blockHeight: number;
+};
+
 export type DeploymentState = {
   network: string;
   walletAddress: string;
   deployedAt: string;
   contracts: Partial<Record<ContractKey, string>>;
+  deploymentTransactions?: Partial<Record<ContractKey, DeploymentTransaction>>;
 };
 
 export function readDeploymentState(): DeploymentState | undefined {
@@ -56,11 +64,18 @@ async function main(): Promise<void> {
   console.log(`Deploying tiny.place Compact contracts to ${config.networkId}`);
   const wallet = await buildWalletFromHexSeed(config, GENESIS_SEED);
   const walletAddress = wallet.unshieldedKeystore.getBech32Address().asString();
-  const existing = readDeploymentState() ?? {
+  const storedState = readDeploymentState();
+  if (storedState && storedState.network !== config.networkId) {
+    throw new Error(
+      `Deployment state belongs to ${storedState.network}, but the selected network is ${config.networkId}. Use a separate state file before deploying.`,
+    );
+  }
+  const existing = storedState ?? {
     network: config.networkId,
     walletAddress,
     deployedAt: new Date().toISOString(),
     contracts: {},
+    deploymentTransactions: {},
   };
 
   try {
@@ -77,11 +92,19 @@ async function main(): Promise<void> {
         privateStateId: `tinyplace-${key}`,
         initialPrivateState: {},
       });
-      const address = deployed.deployTxData.public.contractAddress;
+      const publicData = deployed.deployTxData.public;
+      const address = String(publicData.contractAddress);
       existing.contracts[key] = address;
+      existing.deploymentTransactions ??= {};
+      existing.deploymentTransactions[key] = {
+        txId: String(publicData.txId),
+        txHash: String(publicData.txHash),
+        blockHash: String(publicData.blockHash),
+        blockHeight: publicData.blockHeight,
+      };
       existing.deployedAt = new Date().toISOString();
       writeDeploymentState(existing);
-      console.log(`${key} deployed at ${address}`);
+      console.log(`${key} deployed at ${address} (tx ${publicData.txId}, block ${publicData.blockHeight})`);
     }
     console.log("\nDeployment complete:");
     console.log(JSON.stringify(existing, null, 2));

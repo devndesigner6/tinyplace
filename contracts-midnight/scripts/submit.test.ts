@@ -32,6 +32,19 @@ test("retries a wrapped SDK submission closure", async () => {
   assert.equal(attempts, 2);
 });
 
+test("retries a transient Preview WebSocket closure", async () => {
+  let attempts = 0;
+
+  const hash = await submitWithRetry(async () => {
+    attempts += 1;
+    if (attempts === 1) throw new Error("disconnected from wss://rpc.preview.midnight.network/: 1000:: Normal Closure");
+    return "tx-hash";
+  }, { delayMs: 0 });
+
+  assert.equal(hash, "tx-hash");
+  assert.equal(attempts, 2);
+});
+
 test("does not retry a non-transient submission error", async () => {
   let attempts = 0;
 
