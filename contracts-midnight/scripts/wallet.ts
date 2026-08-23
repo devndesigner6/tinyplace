@@ -64,6 +64,7 @@ export async function buildWalletFromHexSeed(
     await waitForFunds(wallet);
   }
   await registerNightForDust(ctx);
+  await waitForSpendableDust(ctx);
   return ctx;
 }
 
