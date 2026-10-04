@@ -70,13 +70,34 @@ export function LocalIdentityProvider({
 		if (typeof window === "undefined") return false;
 		const win = window as any;
 
-		// 1. Official Midnight Lace DApp Connector API (window.midnight.mnLace)
-		const midnightProvider = win.midnight?.mnLace || win.midnight?.lace;
-		if (midnightProvider && typeof midnightProvider.enable === "function") {
+		// 1. Official Midnight Lace DApp Connector API (window.midnight.mnLace),
+		// otherwise any other Midnight wallet implementing the DApp Connector v4 API
+		const isV4Wallet = (provider: any): boolean =>
+			String(provider?.apiVersion).startsWith("4") &&
+			typeof provider?.connect === "function";
+		const midnightProvider =
+			win.midnight?.mnLace ||
+			win.midnight?.lace ||
+			Object.values(win.midnight ?? {}).find(isV4Wallet);
+		if (
+			midnightProvider &&
+			(isV4Wallet(midnightProvider) ||
+				typeof midnightProvider.enable === "function")
+		) {
 			try {
-				const walletApi = await midnightProvider.enable();
-				const state = typeof walletApi?.state === "function" ? await walletApi.state() : walletApi;
-				const laceAddr = state?.shielded?.address || state?.unshielded?.address || state?.address;
+				let laceAddr: any;
+				if (isV4Wallet(midnightProvider)) {
+					const networkId =
+						process.env["NEXT_PUBLIC_MIDNIGHT_NETWORK"] ?? "undeployed";
+					const connectedApi = await midnightProvider.connect(networkId);
+					const { shieldedAddress } =
+						await connectedApi.getShieldedAddresses();
+					laceAddr = shieldedAddress;
+				} else {
+					const walletApi = await midnightProvider.enable();
+					const state = typeof walletApi?.state === "function" ? await walletApi.state() : walletApi;
+					laceAddr = state?.shielded?.address || state?.unshielded?.address || state?.address;
+				}
 				if (laceAddr) {
 					const addrStr = String(laceAddr);
 					const stored = loadOrCreateStoredIdentity();
